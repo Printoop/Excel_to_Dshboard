@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MH South Team Work planner</title>
+<meta name="color-scheme" content="dark">
+<style>
+:root{
+  --bg:#0e1117; --panel:#161b24; --panel2:#1c2230; --line:#262e3d; --text:#e7eaf0; --muted:#8a93a6;
+  --accent:#6ea8fe; --today:#2b3a5c; --bad:#ff6b6b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;color-scheme:dark}
+header{padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
+h1{margin:0;font-size:22px;font-weight:650;letter-spacing:.2px}
+.meta{color:var(--muted);font-size:12.5px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 22px}
+.bar .grow{flex:1}
+button,select,input[type=search]{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font:inherit}
+button{cursor:pointer}
+button:hover,select:hover{border-color:#3a4660}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#title{font-size:18px;font-weight:600;min-width:150px;text-align:center}
+.stats{display:flex;gap:16px;color:var(--muted);font-size:12.5px;padding:0 22px 10px;flex-wrap:wrap}
+.stats b{color:var(--text)}
+.stats .od b{color:var(--bad)}
+#msg{margin:0 22px 10px;padding:10px 12px;border-radius:8px;background:#2a1d22;border:1px solid #5a2f38;color:#ffb3bb;display:none}
+#msg.info{background:#1b2536;border-color:#2f4466;color:#b8d0ff}
+.wrap{padding:0 22px 28px}
+.dow,.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.dow div{color:var(--muted);font-size:12px;padding:4px 6px}
+.day{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-height:128px;padding:6px;display:flex;flex-direction:column;gap:5px}
+.day.pad{background:transparent;border-color:transparent}
+.day.today{background:var(--today);border-color:#4a68a8}
+.day.past .dn{color:var(--muted)}
+.dn{font-weight:600;font-size:13px;display:flex;justify-content:space-between}
+.dn small{color:var(--muted);font-weight:400}
+.card{display:block;text-decoration:none;color:inherit;background:var(--panel2);border:1px solid var(--line);border-left:4px solid hsl(var(--h) 65% 58%);border-radius:7px;padding:5px 7px;font-size:12px}
+a.card:hover{border-color:hsl(var(--h) 65% 58%);background:#222a3b}
+div.card{opacity:.85}
+.r1{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.who{font-weight:650;font-size:12.5px;color:hsl(var(--h) 80% 75%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st{font-size:10.5px;color:var(--c);white-space:nowrap}
+.no{color:var(--muted);font-size:11.5px;margin-top:1px}
+.no .odt{color:var(--bad);margin-left:4px}
+.sum{margin-top:2px;color:#cfd5e2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.more{background:none;border:1px dashed var(--line);color:var(--accent);font-size:12px;padding:3px}
+.empty{color:var(--muted);padding:30px;text-align:center}
+@media (max-width:760px){
+  header,.bar,.stats,.wrap{padding-left:12px;padding-right:12px}
+  #msg{margin-left:12px;margin-right:12px}
+  .dow{display:none}
+  .grid{grid-template-columns:1fr}
+  .day.pad,.day.none{display:none}
+  .day{min-height:0}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>MH South Team Work planner</h1>
+  <div class="meta" id="updated">Loading data…</div>
+</header>
+
+<div class="bar">
+  <button id="prev" aria-label="Previous month">&#8249; Prev</button>
+  <div id="title"></div>
+  <button id="next" aria-label="Next month">Next &#8250;</button>
+  <button id="today">Today</button>
+  <span class="grow"></span>
+  <select id="fWho" aria-label="Filter by assigned person"><option value="">All people</option></select>
+  <select id="fStatus" aria-label="Filter by status"><option value="">All statuses</option></select>
+  <input id="fQ" type="search" placeholder="Search account, city, product, ticket…">
+  <button id="reload">Refresh data</button>
+  <label class="meta" style="cursor:pointer">Open file…<input id="file" type="file" accept=".xlsx,.xls" hidden></label>
+</div>
+
+<div class="stats" id="stats"></div>
+<div id="msg" role="status"></div>
+
+<div class="wrap">
+  <div class="dow"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ============ SETTINGS: edit these ============ */
+const CONFIG = {
+  // Raw link of the Excel file in your PUBLIC GitHub repo. Tip: use a file name without spaces.
+  DATA_URL: "https://raw.githubusercontent.com/Printoop/Excel_to_Dshboard/main/04_Refresh_Daily_CRM_30_Days_Work_Planner.xlsx" ,
+  // Used only if a row has no Ticket Link. {id} is replaced with the Id column. Leave empty to disable.
+  LINK_TEMPLATE: "",
+  // Page re-reads the file automatically every N minutes (0 = off)
+  REFRESH_MIN: 10
+};
+/* ============================================== */
+
+const MON = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad2 = n => String(n).padStart(2, "0");
+const keyOf = (y, m, d) => y + "-" + pad2(m + 1) + "-" + pad2(d);
+
+let ALL = [], view = new Date(), loadedAt = null;
+view.setDate(1);
+const F = {who: "", status: "", q: ""};
+const expanded = new Set();
+
+function parseDate(v){
+  if (v == null || v === "") return null;
+  if (v instanceof Date) return {y: v.getFullYear(), m: v.getMonth(), d: v.getDate()};
+  if (typeof v === "number"){
+    const p = XLSX.SSF.parse_date_code(v);
+    return p ? {y: p.y, m: p.m - 1, d: p.d} : null;
+  }
+  const s = String(v).trim();
+  let m = s.match(/^(\d{1,2})[\/\-\s]([A-Za-z]{3,})[\/\-\s,]*(\d{2,4})$/);
+  if (m){
+    const mo = MON[m[2].slice(0, 3).toLowerCase()];
+    if (mo == null) return null;
+    let y = +m[3]; if (y < 100) y += 2000;
+    return {y, m: mo, d: +m[1]};
+  }
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if (m) return {y: +m[3], m: +m[2] - 1, d: +m[1]};
+  const t = new Date(s);
+  return isNaN(t) ? null : {y: t.getFullYear(), m: t.getMonth(), d: t.getDate()};
+}
+
+function safeUrl(u){
+  u = String(u || "").trim();
+  return /^https?:\/\//i.test(u) ? u : "";
+}
+
+function parseWorkbook(wb){
+  for (const name of wb.SheetNames){
+    const ws = wb.Sheets[name];
+    if (!ws || !ws["!ref"]) continue;
+    const rng = XLSX.utils.decode_range(ws["!ref"]);
+    let hr = -1, cols = {};
+    for (let r = rng.s.r; r <= Math.min(rng.e.r, rng.s.r + 40) && hr < 0; r++){
+      const found = {};
+      for (let c = rng.s.c; c <= Math.min(rng.e.c, 60); c++){
+        const cell = ws[XLSX.utils.encode_cell({r, c})];
+        if (cell && cell.v != null) found[String(cell.v).replace(/\s+/g, " ").trim().toLowerCase()] = c;
+      }
+      if (found["real due date"] != null){ hr = r; cols = found; }
+    }
+    if (hr < 0) continue;
+    const col = (...names) => { for (const n of names){ for (const k in cols) if (k === n || k.endsWith(n)) return cols[k]; } return undefined; };
+    const C = {
+      no: col("ticket number"), status: col("status"), due: col("real due date"),
+      acc: col("account name"), city: col("city"), prod: col("product name"),
+      type: col("ticket type"), who: col("assigned to"), id: col("id"),
+      asm: col("asm"), link: col("ticket link"), serial: col("serial number")
+    };
+    const cell = (r, c) => c == null ? undefined : ws[XLSX.utils.encode_cell({r, c})];
+    const txt = (r, c) => { const x = cell(r, c); return x && x.v != null ? String(x.w ?? x.v).trim() : ""; };
+    const out = [];
+    for (let r = hr + 1; r <= rng.e.r; r++){
+      const dc = cell(r, C.due);
+      const dt = parseDate(dc ? dc.v : null) || parseDate(dc ? dc.w : null);
+      const no = txt(r, C.no);
+      if (!dt || !no) continue;
+      const bad = s => !s || /^#/.test(s) ? "" : s;
+      const account = bad(txt(r, C.acc)), city = bad(txt(r, C.city)), product = bad(txt(r, C.prod));
+      let link = safeUrl(txt(r, C.link));
+      if (!link){
+        const lc = cell(r, C.link), nc = cell(r, C.no);
+        link = safeUrl(lc && lc.l && lc.l.Target) || safeUrl(nc && nc.l && nc.l.Target);
+      }
+      const id = txt(r, C.id);
+      if (!link && CONFIG.LINK_TEMPLATE && id) link = safeUrl(CONFIG.LINK_TEMPLATE.replace("{id}", encodeURIComponent(id)));
+      out.push({
+        no, status: bad(txt(r, C.status)), type: bad(txt(r, C.type)),
+        who: bad(txt(r, C.who)), asm: bad(txt(r, C.asm)), serial: bad(txt(r, C.serial)),
+        account, city, product, link,
+        summary: [account, city, product].filter(Boolean).join(" | "),
+        y: dt.y, m: dt.m, d: dt.d, key: keyOf(dt.y, dt.m, dt.d)
+      });
+    }
+    if (out.length) return out;
+  }
+  throw new Error("Could not find a table with a \u201cReal Due date\u201d column in this file.");
+}
+
+function showMsg(t, info){
+  const el = $("msg");
+  if (!t){ el.style.display = "none"; return; }
+  el.textContent = t; el.className = info ? "info" : ""; el.style.display = "block";
+}
+
+async function load(){
+  $("updated").textContent = "Loading data\u2026";
+  try {
+    const url = CONFIG.DATA_URL + (CONFIG.DATA_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
+    const res = await fetch(url, {cache: "no-store"});
+    if (!res.ok) throw new Error("Could not download the Excel file (HTTP " + res.status + "). Check DATA_URL and that the repo is public.");
+    const buf = await res.arrayBuffer();
+    ingest(XLSX.read(new Uint8Array(buf), {type: "array"}));
+  } catch (e){
+    showMsg((e && e.message ? e.message : e) + " You can also use \u201cOpen file\u2026\u201d to load the Excel from your computer.");
+    $("updated").textContent = "Data not loaded";
+  }
+}
+
+function ingest(wb){
+  ALL = parseWorkbook(wb);
+  loadedAt = new Date();
+  const noLink = ALL.filter(t => !t.link).length;
+  showMsg(noLink ? noLink + " of " + ALL.length + " tickets have no usable link, so they are not clickable. Check the Ticket Link column in the Excel file." : "");
+  fillFilters();
+  $("updated").textContent = "Data refreshed " + loadedAt.toLocaleString([], {dateStyle: "medium", timeStyle: "short"});
+  render();
+}
+
+function fillFilters(){
+  const fill = (id, vals, label) => {
+    const el = $(id), cur = el.value;
+    el.innerHTML = '<option value="">' + label + "</option>" + vals.map(v => '<option>' + esc(v) + "</option>").join("");
+    el.value = vals.includes(cur) ? cur : "";
+  };
+  fill("fWho", [...new Set(ALL.map(t => t.who).filter(Boolean))].sort(), "All people");
+  fill("fStatus", [...new Set(ALL.map(t => t.status).filter(Boolean))].sort(), "All statuses");
+  F.who = $("fWho").value; F.status = $("fStatus").value;
+}
+
+function hue(s){ let h = 0; for (const c of s || "?") h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
+function statusColor(s){
+  s = (s || "").toLowerCase();
+  if (/escalat/.test(s)) return "#ff7b7b";
+  if (/pending|part|warranty/.test(s)) return "#ffb454";
+  if (/process|observ/.test(s)) return "#e6d36a";
+  if (/schedul/.test(s)) return "#5fd6c4";
+  if (/review|close/.test(s)) return "#9be37a";
+  return "#8fb8ff";
+}
+
+function visible(){
+  const q = F.q.trim().toLowerCase();
+  return ALL.filter(t =>
+    (!F.who || t.who === F.who) && (!F.status || t.status === F.status) &&
+    (!q || (t.summary + " " + t.no + " " + t.who + " " + t.serial + " " + t.type).toLowerCase().includes(q)));
+}
+
+function cardHtml(t, todayKey){
+  const od = t.key < todayKey;
+  const tip = [t.summary, "Ticket " + t.no, t.type, t.status, t.who && "Assigned: " + t.who, t.asm && "ASM: " + t.asm, t.serial && "Serial: " + t.serial].filter(Boolean).join("\n");
+  const inner =
+    '<div class="r1"><span class="who">' + esc(t.who || "Unassigned") + '</span><span class="st" style="--c:' + statusColor(t.status) + '">' + esc(t.status) + "</span></div>" +
+    '<div class="no">#' + esc(t.no) + (t.type ? " \u00b7 " + esc(t.type) : "") + (od ? '<span class="odt">overdue</span>' : "") + "</div>" +
+    '<div class="sum">' + esc(t.summary) + "</div>";
+  const attrs = 'class="card" style="--h:' + hue(t.who) + '" title="' + esc(tip) + '"';
+  return t.link
+    ? "<a " + attrs + ' href="' + esc(t.link) + '" target="_blank" rel="noopener">' + inner + "</a>"
+    : "<div " + attrs + ">" + inner + "</div>";
+}
+
+function render(){
+  const y = view.getFullYear(), m = view.getMonth();
+  $("title").textContent = view.toLocaleString([], {month: "long", year: "numeric"});
+  const list = visible(), by = {};
+  list.forEach(t => (by[t.key] = by[t.key] || []).push(t));
+  const now = new Date(), todayKey = keyOf(now.getFullYear(), now.getMonth(), now.getDate());
+  const lead = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
+  let html = "";
+  for (let i = 0; i < lead; i++) html += '<div class="day pad"></div>';
+  let inMonth = 0;
+  for (let d = 1; d <= days; d++){
+    const k = keyOf(y, m, d), items = (by[k] || []).sort((a, b) => (a.who || "").localeCompare(b.who || ""));
+    inMonth += items.length;
+    const open = expanded.has(k), shown = open ? items : items.slice(0, 3);
+    html += '<div class="day' + (k === todayKey ? " today" : "") + (k < todayKey ? " past" : "") + (items.length ? "" : " none") + '">' +
+      '<div class="dn"><span>' + d + '</span><small>' + (items.length ? items.length : "") + "</small></div>" +
+      shown.map(t => cardHtml(t, todayKey)).join("") +
+      (items.length > 3 ? '<button class="more" data-k="' + k + '">' + (open ? "Show less" : "+" + (items.length - 3) + " more") + "</button>" : "") +
+      "</div>";
+  }
+  $("grid").innerHTML = html;
+  const overdue = list.filter(t => t.key < todayKey).length;
+  $("stats").innerHTML = "<span><b>" + inMonth + "</b> tickets this month</span><span><b>" + list.length + "</b> shown in total</span><span class=\"od\"><b>" + overdue + "</b> past due date</span>";
+}
+
+$("prev").onclick = () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); render(); };
+$("next").onclick = () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); render(); };
+$("today").onclick = () => { view = new Date(); view.setDate(1); render(); };
+$("fWho").onchange = e => { F.who = e.target.value; render(); };
+$("fStatus").onchange = e => { F.status = e.target.value; render(); };
+$("fQ").oninput = e => { F.q = e.target.value; render(); };
+$("reload").onclick = load;
+$("grid").addEventListener("click", e => {
+  const b = e.target.closest(".more"); if (!b) return;
+  expanded.has(b.dataset.k) ? expanded.delete(b.dataset.k) : expanded.add(b.dataset.k);
+  render();
+});
+$("file").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { ingest(XLSX.read(new Uint8Array(await f.arrayBuffer()), {type: "array"})); $("updated").textContent += " (from local file)"; }
+  catch (err){ showMsg(err.message); }
+};
+
+render();
+load();
+if (CONFIG.REFRESH_MIN > 0) setInterval(load, CONFIG.REFRESH_MIN * 60000);
+</script>
+</body>
+</html>
