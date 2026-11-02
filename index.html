@@ -77,7 +77,7 @@ div.card{opacity:.85}
 .mini .m1 b{font-size:12px}
 .mini .sum{-webkit-line-clamp:1}
 .mini small{color:var(--bad);font-size:10.5px}
-#panel{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);z-index:50;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;box-shadow:-10px 0 30px rgba(0,0,0,.35)}
+#panel{position:fixed;top:0;right:0;bottom:0;width:min(760px,100%);z-index:50;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;box-shadow:-10px 0 30px rgba(0,0,0,.35)}
 #panel[hidden]{display:none}
 .ph{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:600}
 #pbody{overflow:auto;padding:8px 12px 24px}
@@ -95,14 +95,36 @@ header .meta{margin-top:6px}
 .theme input:checked+i{background:var(--accent)}
 .theme input:checked+i::after{background:#fff;transform:translateX(18px)}
 .theme input:focus-visible+i{outline:2px solid var(--accent);outline-offset:2px}
+.wd{display:none}
+.msb{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mslist .clr{display:block;margin:2px 6px 6px}
+.pt{border-collapse:collapse;width:100%;font-size:12.5px;white-space:nowrap}
+.pt th{position:sticky;top:0;background:var(--panel);text-align:left;border-bottom:1px solid var(--line);padding:0}
+.pt th .sb{background:none;border:0;border-radius:0;padding:7px 8px;color:var(--muted);font:inherit;font-weight:600;cursor:pointer}
+.pt th .sb:hover{color:var(--text)}
+.pt td{padding:6px 8px;border-bottom:1px solid var(--line)}
+.pt a{color:var(--accent);font-weight:600;text-decoration:none}
+.ghost{box-shadow:0 8px 20px rgba(0,0,0,.5)}
+.touchhint{display:none;margin:0 22px 8px;color:var(--muted);font-size:12.5px}
 @media (max-width:760px){
   header,.bar,.stats,.wrap{padding-left:12px;padding-right:12px}
   #msg{margin-left:12px;margin-right:12px}
   .dow{display:none}
   .grid{grid-template-columns:1fr}
-  .day.pad,.day.none{display:none}
+  .day.pad,.day.none.past{display:none}
   .day{min-height:0}
+  .day.none{padding:3px 8px}
+  .wd{display:inline;color:var(--muted);font-weight:400;font-size:12px}
+  .bar{position:relative}
+  .ms{position:static}
+  .mslist{top:auto;left:12px;right:12px;max-width:none}
+  #panel{width:100%}
+  .touchhint{margin-left:12px;margin-right:12px}
   .theme{position:static;justify-content:center;margin-bottom:8px}
+}
+@media (hover:none) and (pointer:coarse){
+  .card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+  .touchhint{display:block}
 }
 </style>
 </head>
@@ -120,11 +142,7 @@ header .meta{margin-top:6px}
   <button id="next" aria-label="Next month">Next &#8250;</button>
   <button id="today">Today</button>
   <span class="grow"></span>
-  <select id="fWho" aria-label="Filter by assigned person"><option value="">All people</option></select>
-  <select id="fAsm" aria-label="Filter by ASM"><option value="">All ASM</option></select>
-  <select id="fType" aria-label="Filter by ticket type"><option value="">All ticket types</option></select>
-  <div class="ms"><button id="cityBtn" type="button" aria-label="Filter by city">All cities &#9662;</button><div id="cityList" class="mslist" hidden></div></div>
-  <select id="fStatus" aria-label="Filter by status"><option value="">All statuses</option></select>
+  <span id="filters" style="display:contents"></span>
   <input id="fQ" type="search" placeholder="Search account, city, product, ticket…">
   <button id="reload">Refresh data</button>
   <button id="reset" disabled>Reset moves</button>
@@ -134,6 +152,7 @@ header .meta{margin-top:6px}
 
 <div class="stats" id="stats"></div>
 <div id="msg" role="status"></div>
+<div class="touchhint">Tip: hold a tile for 3 seconds, then slide it onto a date and release.</div>
 
 <div class="wrap" id="wrap">
   <div id="pdWrap" hidden><div class="sec">Past due <small id="pdCount"></small><small>drag onto today or a later date to re-assign</small></div><div class="pdStrip" id="pdStrip"></div></div>
@@ -167,7 +186,7 @@ const keyOf = (y, m, d) => y + "-" + pad2(m + 1) + "-" + pad2(d);
 
 let ALL = [], view = new Date(), loadedAt = null;
 view.setDate(1);
-const F = {who: "", asm: "", type: "", status: "", q: "", cities: new Set()};
+const F = {q: ""};
 const expanded = new Set();
 
 function parseDate(v){
@@ -278,18 +297,41 @@ function ingest(wb){
   render();
 }
 
+const FILTERS = [
+  {k: "who", label: "FSE", get: t => t.who},
+  {k: "asm", label: "ASM", get: t => t.asm},
+  {k: "type", label: "TYPE", get: t => t.type},
+  {k: "status", label: "STATUS", get: t => t.status},
+  {k: "city", label: "CITY", get: t => t.city}
+];
+const SEL = {}; FILTERS.forEach(f => SEL[f.k] = new Set());
+function textOk(t){
+  const q = F.q.trim().toLowerCase();
+  return !q || (t.summary + " " + t.no + " " + t.who + " " + t.serial + " " + t.type).toLowerCase().includes(q);
+}
+function matches(t, skip){
+  return textOk(t) && FILTERS.every(f => f.k === skip || !SEL[f.k].size || SEL[f.k].has(f.get(t)));
+}
 function fillFilters(){
-  const fill = (id, vals, label) => {
-    const el = $(id), cur = el.value;
-    el.innerHTML = '<option value="">' + label + "</option>" + vals.map(v => '<option>' + esc(v) + "</option>").join("");
-    el.value = vals.includes(cur) ? cur : "";
+  const avail = () => {
+    const o = {};
+    FILTERS.forEach(f => { const c = {}; ALL.forEach(t => { if (matches(t, f.k)){ const v = f.get(t); if (v) c[v] = (c[v] || 0) + 1; } }); o[f.k] = c; });
+    return o;
   };
-  fill("fWho", [...new Set(ALL.map(t => t.who).filter(Boolean))].sort(), "All people");
-  fill("fAsm", [...new Set(ALL.map(t => t.asm).filter(Boolean))].sort(), "All ASM");
-  fill("fType", [...new Set(ALL.map(t => t.type).filter(Boolean))].sort(), "All ticket types");
-  fill("fStatus", [...new Set(ALL.map(t => t.status).filter(Boolean))].sort(), "All statuses");
-  F.who = $("fWho").value; F.asm = $("fAsm").value; F.type = $("fType").value; F.status = $("fStatus").value;
-  fillCities();
+  let a = avail();
+  for (let i = 0; i < 6; i++){
+    let ch = false;
+    FILTERS.forEach(f => [...SEL[f.k]].forEach(v => { if (!a[f.k][v]){ SEL[f.k].delete(v); ch = true; } }));
+    if (!ch) break;
+    a = avail();
+  }
+  FILTERS.forEach(f => {
+    const box = document.querySelector('.ms[data-k="' + f.k + '"]'), list = box.querySelector(".mslist"), st = list.scrollTop, s = SEL[f.k];
+    box.querySelector(".msb").textContent = (s.size === 0 ? "All " + f.label : s.size === 1 ? f.label + ": " + [...s][0] : f.label + ": " + s.size + " selected") + " \u25be";
+    list.innerHTML = '<button type="button" class="lnk clr" data-k="' + f.k + '">Clear</button>' +
+      Object.keys(a[f.k]).sort(cmp).map(v => '<label><input type="checkbox" value="' + esc(v) + '"' + (s.has(v) ? " checked" : "") + "> " + esc(v) + " <small>" + a[f.k][v] + "</small></label>").join("");
+    list.scrollTop = st;
+  });
 }
 
 function hue(s){ let h = 0; for (const c of s || "?") h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
@@ -303,12 +345,7 @@ function statusColor(s){
   return "#8fb8ff";
 }
 
-function visible(){
-  const q = F.q.trim().toLowerCase();
-  return ALL.filter(t =>
-    (!F.who || t.who === F.who) && (!F.asm || t.asm === F.asm) && (!F.type || t.type === F.type) && (!F.cities.size || F.cities.has(t.city)) && (!F.status || t.status === F.status) &&
-    (!q || (t.summary + " " + t.no + " " + t.who + " " + t.serial + " " + t.type).toLowerCase().includes(q)));
-}
+function visible(){ return ALL.filter(t => matches(t, null)); }
 
 function cardHtml(t, todayKey){
   const od = t.key < todayKey;
@@ -332,7 +369,7 @@ function monthHtml(y, m, by, todayKey){
     n += items.length; all.push(...items);
     const open = expanded.has(k), shown = open ? items : items.slice(0, 3);
     html += '<div class="day' + (k === todayKey ? " today" : "") + (k < todayKey ? " past" : "") + (items.length ? "" : " none") + '" data-k="' + k + '">' +
-      '<div class="dn"><span>' + d + '</span><small>' + (items.length ? items.length : "") + "</small></div>" +
+      '<div class="dn"><span>' + d + '<small class="wd"> ' + WD[new Date(y, m, d).getDay()] + '</small></span><small>' + (items.length ? items.length : "") + "</small></div>" +
       shown.map(t => cardHtml(t, todayKey)).join("") +
       (items.length > 3 ? '<button class="more" data-k="' + k + '">' + (open ? "Show less" : "+" + (items.length - 3) + " more") + "</button>" : "") +
       "</div>";
@@ -373,11 +410,7 @@ function render(){
 $("prev").onclick = () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); render(); };
 $("next").onclick = () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); render(); };
 $("today").onclick = () => { view = new Date(); view.setDate(1); render(); };
-$("fWho").onchange = e => { F.who = e.target.value; render(); };
-$("fStatus").onchange = e => { F.status = e.target.value; render(); };
-$("fAsm").onchange = e => { F.asm = e.target.value; render(); };
-$("fType").onchange = e => { F.type = e.target.value; render(); };
-$("fQ").oninput = e => { F.q = e.target.value; render(); };
+$("fQ").oninput = e => { F.q = e.target.value; fillFilters(); render(); };
 $("reload").onclick = load;
 $("wrap").addEventListener("click", e => {
   const b = e.target.closest(".more"); if (!b) return;
@@ -413,45 +446,77 @@ function applyMoves(){
   if (dirty) saveMoves();
 }
 
-/* ---- city multi-select ---- */
-function cityLabel(){ const n = F.cities.size; $("cityBtn").textContent = (n === 0 ? "All cities" : n === 1 ? [...F.cities][0] : n + " cities") + " \u25be"; }
-function fillCities(){
-  const cnt = {}; ALL.forEach(t => { if (t.city) cnt[t.city] = (cnt[t.city] || 0) + 1; });
-  F.cities = new Set([...F.cities].filter(c => cnt[c]));
-  $("cityList").innerHTML = '<button type="button" class="lnk" id="cityClear">Clear selection</button>' + Object.keys(cnt).sort().map(c => '<label><input type="checkbox" value="' + esc(c) + '"' + (F.cities.has(c) ? " checked" : "") + "> " + esc(c) + " <small>" + cnt[c] + "</small></label>").join("");
-  cityLabel();
-}
-$("cityBtn").onclick = e => { e.stopPropagation(); $("cityList").hidden = !$("cityList").hidden; };
-$("cityList").addEventListener("click", e => { e.stopPropagation(); if (e.target.id === "cityClear"){ F.cities.clear(); fillCities(); render(); } });
-$("cityList").addEventListener("change", e => { const c = e.target; if (c.type !== "checkbox") return; c.checked ? F.cities.add(c.value) : F.cities.delete(c.value); cityLabel(); render(); });
-document.addEventListener("click", () => { $("cityList").hidden = true; });
+/* ---- slicer-style filters (multi-select, linked to each other) ---- */
+FILTERS.forEach(f => {
+  const d = document.createElement("div");
+  d.className = "ms"; d.dataset.k = f.k;
+  d.innerHTML = '<button type="button" class="msb"></button><div class="mslist" hidden></div>';
+  $("filters").appendChild(d);
+});
+function closeLists(){ document.querySelectorAll(".mslist").forEach(l => l.hidden = true); }
+function onFilter(){ fillFilters(); render(); }
+$("filters").addEventListener("click", e => {
+  e.stopPropagation();
+  const b = e.target.closest(".msb");
+  if (b){ const l = b.nextElementSibling, wasClosed = l.hidden; closeLists(); l.hidden = !wasClosed; return; }
+  const c = e.target.closest(".clr"); if (c){ SEL[c.dataset.k].clear(); onFilter(); }
+});
+$("filters").addEventListener("change", e => {
+  const c = e.target, k = c.closest(".ms").dataset.k;
+  c.checked ? SEL[k].add(c.value) : SEL[k].delete(c.value);
+  onFilter();
+});
+document.addEventListener("click", closeLists);
 
 /* ---- preview panel for the numbers ---- */
 const PT = {month: "Tickets this month", next: "Tickets next month", all: "All tickets shown", pd: "Past due tickets", moved: "Moved tickets (not yet in Excel)"};
 let PANEL = null, LISTS = {};
 function closePanel(){ PANEL = null; $("panel").hidden = true; }
+const COLS = [
+  {k: "no", h: "Ticket number", v: t => t.no},
+  {k: "acc", h: "Account Name", v: t => t.account},
+  {k: "city", h: "City", v: t => t.city},
+  {k: "prod", h: "Model", v: t => t.product},
+  {k: "key", h: "Due date", v: t => t.key}
+];
+let PSORT = {k: "key", dir: 1};
+const cmp = (a, b) => String(a).localeCompare(String(b), undefined, {numeric: true, sensitivity: "base"});
 function renderPanel(){
   if (!PANEL) return;
-  const rows = (LISTS[PANEL] || []).slice().sort((p, q) => p.key.localeCompare(q.key) || p.no.localeCompare(q.no));
+  const col = COLS.find(c => c.k === PSORT.k);
+  const rows = (LISTS[PANEL] || []).slice().sort((p, q) => PSORT.dir * cmp(col.v(p), col.v(q)) || cmp(p.no, q.no));
   $("ptitle").textContent = PT[PANEL] + " (" + rows.length + ")";
-  $("pbody").innerHTML = rows.length ? rows.map(t => {
-    const n = "#" + esc(t.no);
-    return '<div class="prow"><div class="p1">' + (t.link ? '<a href="' + esc(t.link) + '" target="_blank" rel="noopener">' + n + "</a>" : "<b>" + n + "</b>") + "<span>" + fmtKey(t.key) + (t.moved ? " (was " + fmtKey(t.ok) + ")" : "") + '</span></div><div class="ps">' + esc(t.summary) + "</div></div>";
-  }).join("") : '<div class="empty">No tickets</div>';
+  const head = COLS.map(c => '<th><button type="button" class="sb" data-s="' + c.k + '">' + c.h + (c.k === PSORT.k ? (PSORT.dir > 0 ? " \u25b2" : " \u25bc") : "") + "</button></th>").join("");
+  const body = rows.map(t => "<tr><td>" + (t.link ? '<a href="' + esc(t.link) + '" target="_blank" rel="noopener">' + esc(t.no) + "</a>" : esc(t.no)) + "</td><td>" + esc(t.account) + "</td><td>" + esc(t.city) + "</td><td>" + esc(t.product) + "</td><td>" + fmtKey(t.key) + (t.moved ? ' <span class="mvt" title="was ' + fmtKey(t.ok) + '">moved</span>' : "") + "</td></tr>").join("");
+  $("pbody").innerHTML = rows.length ? '<table class="pt"><thead><tr>' + head + "</tr></thead><tbody>" + body + "</tbody></table>" : '<div class="empty">No tickets</div>';
   $("panel").hidden = false;
 }
+$("pbody").addEventListener("click", e => {
+  const b = e.target.closest(".sb"); if (!b) return;
+  PSORT = {k: b.dataset.s, dir: PSORT.k === b.dataset.s ? -PSORT.dir : 1};
+  renderPanel();
+});
 $("stats").addEventListener("click", e => { const b = e.target.closest("[data-p]"); if (b){ PANEL = b.dataset.p; renderPanel(); } });
 $("pclose").onclick = closePanel;
 document.addEventListener("keydown", e => { if (e.key === "Escape") closePanel(); });
 
-/* ---- drop rules: only today or later ---- */
+/* ---- drag and drop: mouse = drag, touch = hold 3 s then slide ---- */
+const TOUCH = matchMedia("(hover: none) and (pointer: coarse)").matches, HOLD_MS = 3000;
+const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+function todayK(){ const n = new Date(); return keyOf(n.getFullYear(), n.getMonth(), n.getDate()); }
+function moveTo(no, k){
+  const t = ALL.find(x => x.no === no);
+  if (t && k !== t.ok) MOVES[no] = k; else delete MOVES[no];
+  saveMoves(); applyMoves(); render();
+}
 function dropCell(e){
-  const d = e.target.closest && e.target.closest(".day[data-k]"), n = new Date();
-  return d && dragNo != null && d.dataset.k >= keyOf(n.getFullYear(), n.getMonth(), n.getDate()) ? d : null;
+  const d = e.target.closest && e.target.closest(".day[data-k]");
+  return d && dragNo != null && d.dataset.k >= todayK() ? d : null;
 }
 const g = $("wrap");
 g.addEventListener("dragstart", e => {
   const c = e.target.closest && e.target.closest(".card"); if (!c) return;
+  if (TOUCH){ e.preventDefault(); return; }
   dragNo = c.dataset.no; e.dataTransfer.setData("text/plain", dragNo); e.dataTransfer.effectAllowed = "move";
   setTimeout(() => c.classList.add("dragging"), 0);
 });
@@ -465,12 +530,60 @@ g.addEventListener("dragover", e => {
 g.addEventListener("drop", e => {
   const d = dropCell(e); if (!d) return;
   e.preventDefault();
-  const t = ALL.find(x => x.no === dragNo);
-  if (t && d.dataset.k !== t.ok) MOVES[dragNo] = d.dataset.k; else delete MOVES[dragNo];
-  saveMoves(); applyMoves(); dragNo = null; render();
+  const no = dragNo; dragNo = null; moveTo(no, d.dataset.k);
 });
 document.addEventListener("dragover", e => e.preventDefault());
 document.addEventListener("drop", e => e.preventDefault());
+
+let tt = null, lastTouchAt = 0;
+function cellAt(x, y){ const el = document.elementFromPoint(x, y), d = el && el.closest(".day[data-k]"); return d && d.dataset.k >= todayK() ? d : null; }
+function endTouch(){
+  if (!tt) return;
+  clearTimeout(tt.timer); clearInterval(tt.scroll);
+  if (tt.ghost) tt.ghost.remove();
+  if (tt.card) tt.card.classList.remove("dragging");
+  document.querySelectorAll(".over").forEach(x => x.classList.remove("over"));
+  tt = null; dragNo = null;
+}
+g.addEventListener("touchstart", e => {
+  lastTouchAt = Date.now();
+  const c = e.target.closest && e.target.closest(".card");
+  endTouch();
+  if (!c || e.touches.length !== 1) return;
+  const p = e.touches[0];
+  tt = {card: c, x0: p.clientX, y0: p.clientY, x: p.clientX, y: p.clientY, armed: false};
+  tt.timer = setTimeout(() => {
+    if (!tt) return;
+    tt.armed = true; dragNo = c.dataset.no; c.classList.add("dragging");
+    const r = c.getBoundingClientRect(), gh = c.cloneNode(true);
+    gh.classList.add("ghost");
+    gh.style.cssText = "position:fixed;left:0;top:0;pointer-events:none;z-index:99;opacity:.92;width:" + r.width + "px;transform:translate(" + (tt.x - r.width / 2) + "px," + (tt.y - 24) + "px)";
+    document.body.appendChild(gh); tt.ghost = gh; tt.w = r.width;
+    if (navigator.vibrate) navigator.vibrate(40);
+    tt.scroll = setInterval(() => { if (tt.y < 90) window.scrollBy(0, -14); else if (tt.y > innerHeight - 90) window.scrollBy(0, 14); }, 16);
+  }, HOLD_MS);
+}, {passive: true});
+g.addEventListener("touchmove", e => {
+  if (!tt) return;
+  const p = e.touches[0]; tt.x = p.clientX; tt.y = p.clientY;
+  if (!tt.armed){ if (Math.hypot(tt.x - tt.x0, tt.y - tt.y0) > 12){ clearTimeout(tt.timer); tt = null; } return; }
+  e.preventDefault();
+  tt.ghost.style.transform = "translate(" + (tt.x - tt.w / 2) + "px," + (tt.y - 24) + "px)";
+  const d = cellAt(tt.x, tt.y);
+  document.querySelectorAll(".over").forEach(x => x !== d && x.classList.remove("over"));
+  if (d) d.classList.add("over");
+}, {passive: false});
+g.addEventListener("touchend", e => {
+  if (!tt) return;
+  if (tt.armed){
+    e.preventDefault();
+    const d = cellAt(tt.x, tt.y), no = dragNo;
+    endTouch();
+    if (d) moveTo(no, d.dataset.k);
+  } else endTouch();
+});
+g.addEventListener("touchcancel", endTouch);
+g.addEventListener("contextmenu", e => { if (Date.now() - lastTouchAt < 6000 && e.target.closest(".card")) e.preventDefault(); });
 let resetArm = 0;
 $("reset").onclick = () => {
   if (!resetArm){ resetArm = setTimeout(() => { resetArm = 0; $("reset").textContent = "Reset moves"; }, 3500); $("reset").textContent = "Click again to confirm"; return; }
