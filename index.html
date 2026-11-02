@@ -9,44 +9,92 @@
 :root{
   --bg:#0e1117; --panel:#161b24; --panel2:#1c2230; --line:#262e3d; --text:#e7eaf0; --muted:#8a93a6;
   --accent:#6ea8fe; --today:#2b3a5c; --bad:#ff6b6b;
+  --cs:dark; --hover:#3a4660; --cardhover:#222a3b; --sum:#cfd5e2; --todayline:#4a68a8; --onaccent:#0b1020; --ws:80%; --wl:75%; --stf:none;
+  --msgbg:#2a1d22; --msgline:#5a2f38; --msgtext:#ffb3bb; --infobg:#1b2536; --infoline:#2f4466; --infotext:#b8d0ff;
+}
+:root[data-theme="light"]{
+  --bg:#f3f5f9; --panel:#ffffff; --panel2:#f0f3f9; --line:#d8deea; --text:#1a2130; --muted:#626d83;
+  --accent:#2f6fdb; --today:#dbe7ff; --bad:#d23a3a;
+  --cs:light; --hover:#a9b5cb; --cardhover:#e4ebf7; --sum:#2d3547; --todayline:#7ea2e6; --onaccent:#ffffff; --ws:70%; --wl:30%; --stf:brightness(.55) saturate(1.5);
+  --msgbg:#fde8ea; --msgline:#f1b2ba; --msgtext:#9b2433; --infobg:#e3edfc; --infoline:#a8c2ee; --infotext:#1f4a94;
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;color-scheme:dark}
-header{padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
-h1{margin:0;font-size:22px;font-weight:650;letter-spacing:.2px}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;color-scheme:var(--cs)}
+header{position:relative;padding:18px 22px 12px;border-bottom:1px solid var(--line);text-align:center}
+h1{margin:0;font-size:26px;font-weight:650;letter-spacing:.2px}
 .meta{color:var(--muted);font-size:12.5px}
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 22px}
 .bar .grow{flex:1}
 button,select,input[type=search]{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font:inherit}
 button{cursor:pointer}
-button:hover,select:hover{border-color:#3a4660}
+button:hover,select:hover{border-color:var(--hover)}
+button:disabled{opacity:.45;cursor:default}
+#dl{background:var(--accent);color:var(--onaccent);border-color:var(--accent);font-weight:600}
 button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #title{font-size:18px;font-weight:600;min-width:150px;text-align:center}
 .stats{display:flex;gap:16px;color:var(--muted);font-size:12.5px;padding:0 22px 10px;flex-wrap:wrap}
 .stats b{color:var(--text)}
 .stats .od b{color:var(--bad)}
-#msg{margin:0 22px 10px;padding:10px 12px;border-radius:8px;background:#2a1d22;border:1px solid #5a2f38;color:#ffb3bb;display:none}
-#msg.info{background:#1b2536;border-color:#2f4466;color:#b8d0ff}
+#msg{margin:0 22px 10px;padding:10px 12px;border-radius:8px;background:var(--msgbg);border:1px solid var(--msgline);color:var(--msgtext);display:none}
+#msg.info{background:var(--infobg);border-color:var(--infoline);color:var(--infotext)}
 .wrap{padding:0 22px 28px}
 .dow,.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .dow div{color:var(--muted);font-size:12px;padding:4px 6px}
 .day{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-height:128px;padding:6px;display:flex;flex-direction:column;gap:5px}
 .day.pad{background:transparent;border-color:transparent}
-.day.today{background:var(--today);border-color:#4a68a8}
+.day.today{background:var(--today);border-color:var(--todayline)}
+.day.over{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--panel2)}
 .day.past .dn{color:var(--muted)}
 .dn{font-weight:600;font-size:13px;display:flex;justify-content:space-between}
 .dn small{color:var(--muted);font-weight:400}
-.card{display:block;text-decoration:none;color:inherit;background:var(--panel2);border:1px solid var(--line);border-left:4px solid hsl(var(--h) 65% 58%);border-radius:7px;padding:5px 7px;font-size:12px}
-a.card:hover{border-color:hsl(var(--h) 65% 58%);background:#222a3b}
+.card{cursor:grab;display:block;text-decoration:none;color:inherit;background:var(--panel2);border:1px solid var(--line);border-left:4px solid hsl(var(--h) 65% 58%);border-radius:7px;padding:5px 7px;font-size:12px}
+a.card:hover{border-color:hsl(var(--h) 65% 58%);background:var(--cardhover)}
+.card.mv{box-shadow:0 0 0 1px var(--accent)}
+.card.dragging{opacity:.35}
 div.card{opacity:.85}
 .r1{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
-.who{font-weight:650;font-size:12.5px;color:hsl(var(--h) 80% 75%);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.st{font-size:10.5px;color:var(--c);white-space:nowrap}
+.who{font-weight:650;font-size:12.5px;color:hsl(var(--h) var(--ws) var(--wl));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st{font-size:10.5px;color:var(--c);white-space:nowrap;filter:var(--stf)}
 .no{color:var(--muted);font-size:11.5px;margin-top:1px}
 .no .odt{color:var(--bad);margin-left:4px}
-.sum{margin-top:2px;color:#cfd5e2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.sum{margin-top:2px;color:var(--sum);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .more{background:none;border:1px dashed var(--line);color:var(--accent);font-size:12px;padding:3px}
-.empty{color:var(--muted);padding:30px;text-align:center}
+.no .mvt{color:var(--accent);margin-left:4px}
+.ms{position:relative}
+.mslist{position:absolute;z-index:30;top:calc(100% + 4px);right:0;min-width:210px;max-height:320px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.mslist label{display:flex;gap:7px;align-items:center;padding:4px 6px;border-radius:5px;cursor:pointer}
+.mslist label:hover{background:var(--panel2)}
+.mslist small{color:var(--muted);margin-left:auto}
+.lnk{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font:inherit;text-decoration:underline}
+.stats .lnk{font-weight:700;color:var(--text)}
+.stats .od .lnk{color:var(--bad)}
+.sec{font-weight:600;margin:6px 2px;display:flex;gap:8px;align-items:baseline}
+.sec small{color:var(--muted);font-weight:400}
+.mh{margin-top:18px}
+.pdStrip{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;max-height:210px;overflow:auto}
+.card.mini{width:178px;padding:4px 6px}
+.mini .m1{display:flex;justify-content:space-between;gap:4px}
+.mini .m1 b{font-size:12px}
+.mini .sum{-webkit-line-clamp:1}
+.mini small{color:var(--bad);font-size:10.5px}
+#panel{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);z-index:50;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;box-shadow:-10px 0 30px rgba(0,0,0,.35)}
+#panel[hidden]{display:none}
+.ph{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:600}
+#pbody{overflow:auto;padding:8px 12px 24px}
+.prow{padding:8px 4px;border-bottom:1px solid var(--line)}
+.p1{display:flex;justify-content:space-between;gap:8px}
+.p1 a,.p1 b{color:var(--accent);font-weight:600;text-decoration:none}
+.p1 span{color:var(--muted);font-size:12.5px;text-align:right}
+.ps{color:var(--sum);font-size:12.5px;margin-top:2px}
+.sub{color:var(--muted);font-size:13px;margin-top:2px;letter-spacing:.4px}
+header .meta{margin-top:6px}
+.theme{position:absolute;right:22px;top:18px;display:flex;gap:7px;align-items:center;font-size:15px;color:var(--muted);cursor:pointer;user-select:none}
+.theme input{position:absolute;opacity:0;width:0;height:0}
+.theme i{width:38px;height:20px;border-radius:10px;background:var(--line);position:relative;transition:background .2s}
+.theme i::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text);transition:transform .2s}
+.theme input:checked+i{background:var(--accent)}
+.theme input:checked+i::after{background:#fff;transform:translateX(18px)}
+.theme input:focus-visible+i{outline:2px solid var(--accent);outline-offset:2px}
 @media (max-width:760px){
   header,.bar,.stats,.wrap{padding-left:12px;padding-right:12px}
   #msg{margin-left:12px;margin-right:12px}
@@ -54,12 +102,15 @@ div.card{opacity:.85}
   .grid{grid-template-columns:1fr}
   .day.pad,.day.none{display:none}
   .day{min-height:0}
+  .theme{position:static;justify-content:center;margin-bottom:8px}
 }
 </style>
 </head>
 <body>
 <header>
+  <label class="theme" title="Switch dark / light theme"><span aria-hidden="true">&#9790;</span><input type="checkbox" id="theme" role="switch" aria-label="Light theme"><i></i><span aria-hidden="true">&#9728;</span></label>
   <h1>MH South Team Work planner</h1>
+  <div class="sub">by Printo</div>
   <div class="meta" id="updated">Loading data…</div>
 </header>
 
@@ -70,19 +121,30 @@ div.card{opacity:.85}
   <button id="today">Today</button>
   <span class="grow"></span>
   <select id="fWho" aria-label="Filter by assigned person"><option value="">All people</option></select>
+  <select id="fAsm" aria-label="Filter by ASM"><option value="">All ASM</option></select>
+  <select id="fType" aria-label="Filter by ticket type"><option value="">All ticket types</option></select>
+  <div class="ms"><button id="cityBtn" type="button" aria-label="Filter by city">All cities &#9662;</button><div id="cityList" class="mslist" hidden></div></div>
   <select id="fStatus" aria-label="Filter by status"><option value="">All statuses</option></select>
   <input id="fQ" type="search" placeholder="Search account, city, product, ticket…">
   <button id="reload">Refresh data</button>
+  <button id="reset" disabled>Reset moves</button>
+  <button id="dl">Download Excel</button>
   <label class="meta" style="cursor:pointer">Open file…<input id="file" type="file" accept=".xlsx,.xls" hidden></label>
 </div>
 
 <div class="stats" id="stats"></div>
 <div id="msg" role="status"></div>
 
-<div class="wrap">
+<div class="wrap" id="wrap">
+  <div id="pdWrap" hidden><div class="sec">Past due <small id="pdCount"></small><small>drag onto today or a later date to re-assign</small></div><div class="pdStrip" id="pdStrip"></div></div>
   <div class="dow"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div>
   <div class="grid" id="grid"></div>
+  <div class="sec mh" id="title2"></div>
+  <div class="dow"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div>
+  <div class="grid" id="grid2"></div>
 </div>
+
+<aside id="panel" hidden aria-label="Ticket preview"><div class="ph"><span id="ptitle"></span><button id="pclose" type="button" aria-label="Close">&#10005;</button></div><div id="pbody"></div></aside>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
@@ -105,7 +167,7 @@ const keyOf = (y, m, d) => y + "-" + pad2(m + 1) + "-" + pad2(d);
 
 let ALL = [], view = new Date(), loadedAt = null;
 view.setDate(1);
-const F = {who: "", status: "", q: ""};
+const F = {who: "", asm: "", type: "", status: "", q: "", cities: new Set()};
 const expanded = new Set();
 
 function parseDate(v){
@@ -178,10 +240,10 @@ function parseWorkbook(wb){
         who: bad(txt(r, C.who)), asm: bad(txt(r, C.asm)), serial: bad(txt(r, C.serial)),
         account, city, product, link,
         summary: [account, city, product].filter(Boolean).join(" | "),
-        y: dt.y, m: dt.m, d: dt.d, key: keyOf(dt.y, dt.m, dt.d)
+        y: dt.y, m: dt.m, d: dt.d, key: keyOf(dt.y, dt.m, dt.d), ok: keyOf(dt.y, dt.m, dt.d), row: r
       });
     }
-    if (out.length) return out;
+    if (out.length){ out.meta = {sheet: name, dueC: C.due}; return out; }
   }
   throw new Error("Could not find a table with a \u201cReal Due date\u201d column in this file.");
 }
@@ -198,8 +260,8 @@ async function load(){
     const url = CONFIG.DATA_URL + (CONFIG.DATA_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
     const res = await fetch(url, {cache: "no-store"});
     if (!res.ok) throw new Error("Could not download the Excel file (HTTP " + res.status + "). Check DATA_URL and that the repo is public.");
-    const buf = await res.arrayBuffer();
-    ingest(XLSX.read(new Uint8Array(buf), {type: "array"}));
+    FILE = decodeURIComponent(CONFIG.DATA_URL.split("?")[0].split("/").pop());
+    ingest(readWb(await res.arrayBuffer()));
   } catch (e){
     showMsg((e && e.message ? e.message : e) + " You can also use \u201cOpen file\u2026\u201d to load the Excel from your computer.");
     $("updated").textContent = "Data not loaded";
@@ -207,7 +269,7 @@ async function load(){
 }
 
 function ingest(wb){
-  ALL = parseWorkbook(wb);
+  WB = wb; ALL = parseWorkbook(wb); META = ALL.meta; applyMoves();
   loadedAt = new Date();
   const noLink = ALL.filter(t => !t.link).length;
   showMsg(noLink ? noLink + " of " + ALL.length + " tickets have no usable link, so they are not clickable. Check the Ticket Link column in the Excel file." : "");
@@ -223,8 +285,11 @@ function fillFilters(){
     el.value = vals.includes(cur) ? cur : "";
   };
   fill("fWho", [...new Set(ALL.map(t => t.who).filter(Boolean))].sort(), "All people");
+  fill("fAsm", [...new Set(ALL.map(t => t.asm).filter(Boolean))].sort(), "All ASM");
+  fill("fType", [...new Set(ALL.map(t => t.type).filter(Boolean))].sort(), "All ticket types");
   fill("fStatus", [...new Set(ALL.map(t => t.status).filter(Boolean))].sort(), "All statuses");
-  F.who = $("fWho").value; F.status = $("fStatus").value;
+  F.who = $("fWho").value; F.asm = $("fAsm").value; F.type = $("fType").value; F.status = $("fStatus").value;
+  fillCities();
 }
 
 function hue(s){ let h = 0; for (const c of s || "?") h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
@@ -241,46 +306,68 @@ function statusColor(s){
 function visible(){
   const q = F.q.trim().toLowerCase();
   return ALL.filter(t =>
-    (!F.who || t.who === F.who) && (!F.status || t.status === F.status) &&
+    (!F.who || t.who === F.who) && (!F.asm || t.asm === F.asm) && (!F.type || t.type === F.type) && (!F.cities.size || F.cities.has(t.city)) && (!F.status || t.status === F.status) &&
     (!q || (t.summary + " " + t.no + " " + t.who + " " + t.serial + " " + t.type).toLowerCase().includes(q)));
 }
 
 function cardHtml(t, todayKey){
   const od = t.key < todayKey;
-  const tip = [t.summary, "Ticket " + t.no, t.type, t.status, t.who && "Assigned: " + t.who, t.asm && "ASM: " + t.asm, t.serial && "Serial: " + t.serial].filter(Boolean).join("\n");
+  const tip = [t.summary, "Ticket " + t.no, t.type, t.status, t.who && "Assigned: " + t.who, t.asm && "ASM: " + t.asm, t.serial && "Serial: " + t.serial, t.moved && "Moved from " + t.ok].filter(Boolean).join("\n");
   const inner =
     '<div class="r1"><span class="who">' + esc(t.who || "Unassigned") + '</span><span class="st" style="--c:' + statusColor(t.status) + '">' + esc(t.status) + "</span></div>" +
-    '<div class="no">#' + esc(t.no) + (t.type ? " \u00b7 " + esc(t.type) : "") + (od ? '<span class="odt">overdue</span>' : "") + "</div>" +
+    '<div class="no">#' + esc(t.no) + (t.type ? " \u00b7 " + esc(t.type) : "") + (od ? '<span class="odt">overdue</span>' : "") + (t.moved ? '<span class="mvt">moved</span>' : "") + "</div>" +
     '<div class="sum">' + esc(t.summary) + "</div>";
-  const attrs = 'class="card" style="--h:' + hue(t.who) + '" title="' + esc(tip) + '"';
+  const attrs = 'class="card' + (t.moved ? ' mv' : '') + '" draggable="true" data-no="' + esc(t.no) + '" style="--h:' + hue(t.who) + '" title="' + esc(tip) + '"';
   return t.link
     ? "<a " + attrs + ' href="' + esc(t.link) + '" target="_blank" rel="noopener">' + inner + "</a>"
     : "<div " + attrs + ">" + inner + "</div>";
 }
 
-function render(){
-  const y = view.getFullYear(), m = view.getMonth();
-  $("title").textContent = view.toLocaleString([], {month: "long", year: "numeric"});
-  const list = visible(), by = {};
-  list.forEach(t => (by[t.key] = by[t.key] || []).push(t));
-  const now = new Date(), todayKey = keyOf(now.getFullYear(), now.getMonth(), now.getDate());
+function monthHtml(y, m, by, todayKey){
   const lead = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
-  let html = "";
+  let html = "", n = 0; const all = [];
   for (let i = 0; i < lead; i++) html += '<div class="day pad"></div>';
-  let inMonth = 0;
   for (let d = 1; d <= days; d++){
     const k = keyOf(y, m, d), items = (by[k] || []).sort((a, b) => (a.who || "").localeCompare(b.who || ""));
-    inMonth += items.length;
+    n += items.length; all.push(...items);
     const open = expanded.has(k), shown = open ? items : items.slice(0, 3);
-    html += '<div class="day' + (k === todayKey ? " today" : "") + (k < todayKey ? " past" : "") + (items.length ? "" : " none") + '">' +
+    html += '<div class="day' + (k === todayKey ? " today" : "") + (k < todayKey ? " past" : "") + (items.length ? "" : " none") + '" data-k="' + k + '">' +
       '<div class="dn"><span>' + d + '</span><small>' + (items.length ? items.length : "") + "</small></div>" +
       shown.map(t => cardHtml(t, todayKey)).join("") +
       (items.length > 3 ? '<button class="more" data-k="' + k + '">' + (open ? "Show less" : "+" + (items.length - 3) + " more") + "</button>" : "") +
       "</div>";
   }
-  $("grid").innerHTML = html;
-  const overdue = list.filter(t => t.key < todayKey).length;
-  $("stats").innerHTML = "<span><b>" + inMonth + "</b> tickets this month</span><span><b>" + list.length + "</b> shown in total</span><span class=\"od\"><b>" + overdue + "</b> past due date</span>";
+  return {html, n, all};
+}
+
+function fmtKey(k){ const p = k.split("-"); return +p[2] + " " + MN[p[1] - 1] + " " + p[0].slice(2); }
+
+function miniHtml(t){
+  const tip = esc([t.summary, "Ticket " + t.no, t.status, "Due " + fmtKey(t.key)].join("\n"));
+  const inner = '<div class="m1"><b>#' + esc(t.no) + '</b><span class="who">' + esc(t.who || "Unassigned") + "</span></div>" +
+    '<div class="sum">' + esc(t.summary) + "</div><small>due " + fmtKey(t.key) + "</small>";
+  const a = 'class="card mini" draggable="true" data-no="' + esc(t.no) + '" style="--h:' + hue(t.who) + '" title="' + tip + '"';
+  return t.link ? "<a " + a + ' href="' + esc(t.link) + '" target="_blank" rel="noopener">' + inner + "</a>" : "<div " + a + ">" + inner + "</div>";
+}
+
+function render(){
+  const y = view.getFullYear(), m = view.getMonth(), nx = new Date(y, m + 1, 1), fmt = {month: "long", year: "numeric"};
+  $("title").textContent = view.toLocaleString([], fmt);
+  $("title2").textContent = nx.toLocaleString([], fmt);
+  const list = visible(), by = {};
+  list.forEach(t => (by[t.key] = by[t.key] || []).push(t));
+  const now = new Date(), todayKey = keyOf(now.getFullYear(), now.getMonth(), now.getDate());
+  const a = monthHtml(y, m, by, todayKey), b = monthHtml(nx.getFullYear(), nx.getMonth(), by, todayKey);
+  $("grid").innerHTML = a.html; $("grid2").innerHTML = b.html;
+  const pdList = list.filter(t => t.key < todayKey).sort((p, q) => p.key.localeCompare(q.key));
+  const movedList = ALL.filter(t => t.moved);
+  $("pdWrap").hidden = !pdList.length; $("pdCount").textContent = "(" + pdList.length + ")";
+  $("pdStrip").innerHTML = pdList.map(miniHtml).join("");
+  $("reset").disabled = !movedList.length;
+  LISTS = {month: a.all, next: b.all, all: list, pd: pdList, moved: movedList};
+  const L = (p, n) => '<button type="button" class="lnk" data-p="' + p + '">' + n + "</button>";
+  $("stats").innerHTML = "<span>" + L("month", a.n) + " tickets this month</span><span>" + L("next", b.n) + " next month</span><span>" + L("all", list.length) + " shown in total</span><span class='od'>" + L("pd", pdList.length) + " past due date</span>" + (movedList.length ? "<span>" + L("moved", movedList.length) + " moved (not yet in Excel)</span>" : "");
+  renderPanel();
 }
 
 $("prev").onclick = () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); render(); };
@@ -288,17 +375,123 @@ $("next").onclick = () => { view = new Date(view.getFullYear(), view.getMonth() 
 $("today").onclick = () => { view = new Date(); view.setDate(1); render(); };
 $("fWho").onchange = e => { F.who = e.target.value; render(); };
 $("fStatus").onchange = e => { F.status = e.target.value; render(); };
+$("fAsm").onchange = e => { F.asm = e.target.value; render(); };
+$("fType").onchange = e => { F.type = e.target.value; render(); };
 $("fQ").oninput = e => { F.q = e.target.value; render(); };
 $("reload").onclick = load;
-$("grid").addEventListener("click", e => {
+$("wrap").addEventListener("click", e => {
   const b = e.target.closest(".more"); if (!b) return;
   expanded.has(b.dataset.k) ? expanded.delete(b.dataset.k) : expanded.add(b.dataset.k);
   render();
 });
 $("file").onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
-  try { ingest(XLSX.read(new Uint8Array(await f.arrayBuffer()), {type: "array"})); $("updated").textContent += " (from local file)"; }
+  try { FILE = f.name; ingest(readWb(await f.arrayBuffer())); $("updated").textContent += " (from local file)"; }
   catch (err){ showMsg(err.message); }
+};
+
+/* ---- theme ---- */
+function setTheme(t){ document.documentElement.dataset.theme = t; $("theme").checked = t === "light"; try { localStorage.setItem("mhs_theme", t); } catch (e){} }
+let savedTheme = "dark"; try { savedTheme = localStorage.getItem("mhs_theme") || "dark"; } catch (e){}
+setTheme(savedTheme);
+$("theme").onchange = e => setTheme(e.target.checked ? "light" : "dark");
+
+/* ---- moved dates (kept in this browser until reset, or until the Excel in GitHub has the same date) ---- */
+let WB = null, META = null, FILE = "work_planner.xlsx", MOVES = {}, dragNo = null;
+try { MOVES = JSON.parse(localStorage.getItem("mhs_moves") || "{}"); } catch (e){}
+function saveMoves(){ try { localStorage.setItem("mhs_moves", JSON.stringify(MOVES)); } catch (e){} }
+function readWb(buf){ return XLSX.read(new Uint8Array(buf), {type: "array", cellNF: true}); }
+function applyMoves(){
+  const nos = new Set(ALL.map(t => t.no));
+  let dirty = false;
+  for (const n in MOVES) if (!nos.has(n)){ delete MOVES[n]; dirty = true; }
+  ALL.forEach(t => {
+    if (MOVES[t.no] === t.ok){ delete MOVES[t.no]; dirty = true; }
+    const k = MOVES[t.no] || t.ok, p = k.split("-");
+    t.moved = k !== t.ok; t.y = +p[0]; t.m = p[1] - 1; t.d = +p[2]; t.key = k;
+  });
+  if (dirty) saveMoves();
+}
+
+/* ---- city multi-select ---- */
+function cityLabel(){ const n = F.cities.size; $("cityBtn").textContent = (n === 0 ? "All cities" : n === 1 ? [...F.cities][0] : n + " cities") + " \u25be"; }
+function fillCities(){
+  const cnt = {}; ALL.forEach(t => { if (t.city) cnt[t.city] = (cnt[t.city] || 0) + 1; });
+  F.cities = new Set([...F.cities].filter(c => cnt[c]));
+  $("cityList").innerHTML = '<button type="button" class="lnk" id="cityClear">Clear selection</button>' + Object.keys(cnt).sort().map(c => '<label><input type="checkbox" value="' + esc(c) + '"' + (F.cities.has(c) ? " checked" : "") + "> " + esc(c) + " <small>" + cnt[c] + "</small></label>").join("");
+  cityLabel();
+}
+$("cityBtn").onclick = e => { e.stopPropagation(); $("cityList").hidden = !$("cityList").hidden; };
+$("cityList").addEventListener("click", e => { e.stopPropagation(); if (e.target.id === "cityClear"){ F.cities.clear(); fillCities(); render(); } });
+$("cityList").addEventListener("change", e => { const c = e.target; if (c.type !== "checkbox") return; c.checked ? F.cities.add(c.value) : F.cities.delete(c.value); cityLabel(); render(); });
+document.addEventListener("click", () => { $("cityList").hidden = true; });
+
+/* ---- preview panel for the numbers ---- */
+const PT = {month: "Tickets this month", next: "Tickets next month", all: "All tickets shown", pd: "Past due tickets", moved: "Moved tickets (not yet in Excel)"};
+let PANEL = null, LISTS = {};
+function closePanel(){ PANEL = null; $("panel").hidden = true; }
+function renderPanel(){
+  if (!PANEL) return;
+  const rows = (LISTS[PANEL] || []).slice().sort((p, q) => p.key.localeCompare(q.key) || p.no.localeCompare(q.no));
+  $("ptitle").textContent = PT[PANEL] + " (" + rows.length + ")";
+  $("pbody").innerHTML = rows.length ? rows.map(t => {
+    const n = "#" + esc(t.no);
+    return '<div class="prow"><div class="p1">' + (t.link ? '<a href="' + esc(t.link) + '" target="_blank" rel="noopener">' + n + "</a>" : "<b>" + n + "</b>") + "<span>" + fmtKey(t.key) + (t.moved ? " (was " + fmtKey(t.ok) + ")" : "") + '</span></div><div class="ps">' + esc(t.summary) + "</div></div>";
+  }).join("") : '<div class="empty">No tickets</div>';
+  $("panel").hidden = false;
+}
+$("stats").addEventListener("click", e => { const b = e.target.closest("[data-p]"); if (b){ PANEL = b.dataset.p; renderPanel(); } });
+$("pclose").onclick = closePanel;
+document.addEventListener("keydown", e => { if (e.key === "Escape") closePanel(); });
+
+/* ---- drop rules: only today or later ---- */
+function dropCell(e){
+  const d = e.target.closest && e.target.closest(".day[data-k]"), n = new Date();
+  return d && dragNo != null && d.dataset.k >= keyOf(n.getFullYear(), n.getMonth(), n.getDate()) ? d : null;
+}
+const g = $("wrap");
+g.addEventListener("dragstart", e => {
+  const c = e.target.closest && e.target.closest(".card"); if (!c) return;
+  dragNo = c.dataset.no; e.dataTransfer.setData("text/plain", dragNo); e.dataTransfer.effectAllowed = "move";
+  setTimeout(() => c.classList.add("dragging"), 0);
+});
+g.addEventListener("dragend", () => { dragNo = null; document.querySelectorAll(".over,.dragging").forEach(x => x.classList.remove("over", "dragging")); });
+g.addEventListener("dragover", e => {
+  const d = dropCell(e); if (!d) return;
+  e.preventDefault(); e.dataTransfer.dropEffect = "move";
+  document.querySelectorAll(".over").forEach(x => x !== d && x.classList.remove("over"));
+  d.classList.add("over");
+});
+g.addEventListener("drop", e => {
+  const d = dropCell(e); if (!d) return;
+  e.preventDefault();
+  const t = ALL.find(x => x.no === dragNo);
+  if (t && d.dataset.k !== t.ok) MOVES[dragNo] = d.dataset.k; else delete MOVES[dragNo];
+  saveMoves(); applyMoves(); dragNo = null; render();
+});
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => e.preventDefault());
+let resetArm = 0;
+$("reset").onclick = () => {
+  if (!resetArm){ resetArm = setTimeout(() => { resetArm = 0; $("reset").textContent = "Reset moves"; }, 3500); $("reset").textContent = "Click again to confirm"; return; }
+  clearTimeout(resetArm); resetArm = 0; $("reset").textContent = "Reset moves";
+  MOVES = {}; saveMoves(); applyMoves(); render();
+};
+
+/* ---- download Excel with the new Real Due dates ---- */
+const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+$("dl").onclick = () => {
+  if (!WB || !META){ showMsg("Load the data first."); return; }
+  const sh = WB.Sheets[META.sheet]; let n = 0;
+  ALL.forEach(t => {
+    if (!t.moved) return;
+    const c = sh[XLSX.utils.encode_cell({r: t.row, c: META.dueC})]; if (!c) return;
+    if (c.t === "n") c.v = Math.round((Date.UTC(t.y, t.m, t.d) - Date.UTC(1899, 11, 30)) / 864e5);
+    else { c.v = pad2(t.d) + "/" + MN[t.m] + "/" + (/\d{4}\s*$/.test(String(c.v)) ? t.y : String(t.y).slice(2)); c.t = "s"; }
+    delete c.w; delete c.f; n++;
+  });
+  XLSX.writeFile(WB, FILE.replace(/\.xlsx?$/i, "") + "_updated.xlsx");
+  showMsg(n + " due date(s) changed in the downloaded file. Upload it to GitHub to make the change permanent.", true);
 };
 
 render();
