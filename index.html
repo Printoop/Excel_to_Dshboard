@@ -106,6 +106,10 @@ header .meta{margin-top:6px}
 .pt a{color:var(--accent);font-weight:600;text-decoration:none}
 .ghost{box-shadow:0 8px 20px rgba(0,0,0,.5)}
 .touchhint{display:none;margin:0 22px 8px;color:var(--muted);font-size:12.5px}
+.seg{display:inline-flex;margin-top:8px;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;border-radius:0;background:transparent;padding:6px 20px;color:var(--muted)}
+.seg button.on{background:var(--accent);color:var(--onaccent);font-weight:600}
+.pt td.tx{white-space:normal;min-width:180px;max-width:320px}
 @media (max-width:760px){
   header,.bar,.stats,.wrap{padding-left:12px;padding-right:12px}
   #msg{margin-left:12px;margin-right:12px}
@@ -133,6 +137,7 @@ header .meta{margin-top:6px}
   <label class="theme" title="Switch dark / light theme"><span aria-hidden="true">&#9790;</span><input type="checkbox" id="theme" role="switch" aria-label="Light theme"><i></i><span aria-hidden="true">&#9728;</span></label>
   <h1>MH South Team Work planner</h1>
   <div class="sub">by Printo</div>
+  <div class="seg" id="modeSeg"><button type="button" data-m="tickets" class="on">Tickets</button><button type="button" data-m="tasks">Tasks</button></div>
   <div class="meta" id="updated">Loading data…</div>
 </header>
 
@@ -152,7 +157,7 @@ header .meta{margin-top:6px}
 
 <div class="stats" id="stats"></div>
 <div id="msg" role="status"></div>
-<div class="touchhint">Tip: hold a tile for 3 seconds, then slide it onto a date and release.</div>
+<div class="touchhint">Tip: hold a tile for 1 second, then slide it onto a date and release.</div>
 
 <div class="wrap" id="wrap">
   <div id="pdWrap" hidden><div class="sec">Past due <small id="pdCount"></small><small>drag onto today or a later date to re-assign</small></div><div class="pdStrip" id="pdStrip"></div></div>
@@ -171,6 +176,8 @@ header .meta{margin-top:6px}
 const CONFIG = {
   // Raw link of the Excel file in your PUBLIC GitHub repo. Tip: use a file name without spaces.
   DATA_URL: "https://raw.githubusercontent.com/Printoop/Excel_to_Dshboard/main/04_Refresh_Daily_CRM_30_Days_Work_Planner.xlsx" ,
+  // Task tracker Excel (only the sheet "Task" is read), same GitHub repo.
+  TASKS_URL: "https://raw.githubusercontent.com/Printoop/Excel_to_Dshboard/main/00_South_Task_Tracker_Printo.xlsx",
   // Used only if a row has no Ticket Link. {id} is replaced with the Id column. Leave empty to disable.
   LINK_TEMPLATE: "",
   // Page re-reads the file automatically every N minutes (0 = off)
@@ -276,11 +283,13 @@ function showMsg(t, info){
 async function load(){
   $("updated").textContent = "Loading data\u2026";
   try {
-    const url = CONFIG.DATA_URL + (CONFIG.DATA_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
+    const U = MODES[CUR].url(), m = CUR, url = U + (U.includes("?") ? "&" : "?") + "t=" + Date.now();
     const res = await fetch(url, {cache: "no-store"});
-    if (!res.ok) throw new Error("Could not download the Excel file (HTTP " + res.status + "). Check DATA_URL and that the repo is public.");
-    FILE = decodeURIComponent(CONFIG.DATA_URL.split("?")[0].split("/").pop());
-    ingest(readWb(await res.arrayBuffer()));
+    if (!res.ok) throw new Error("Could not download the Excel file (HTTP " + res.status + "). Check the file link in the page settings and that the repo is public.");
+    const buf = await res.arrayBuffer();
+    if (CUR !== m) return;
+    FILE = decodeURIComponent(U.split("?")[0].split("/").pop());
+    ingest(readWb(buf));
   } catch (e){
     showMsg((e && e.message ? e.message : e) + " You can also use \u201cOpen file\u2026\u201d to load the Excel from your computer.");
     $("updated").textContent = "Data not loaded";
@@ -288,26 +297,87 @@ async function load(){
 }
 
 function ingest(wb){
-  WB = wb; ALL = parseWorkbook(wb); META = ALL.meta; applyMoves();
+  WB = wb; ALL = MODES[CUR].parse(wb); META = ALL.meta; applyMoves(); STATE[CUR].loaded = true;
   loadedAt = new Date();
-  const noLink = ALL.filter(t => !t.link).length;
+  const noLink = CUR === "tickets" ? ALL.filter(t => !t.link).length : 0;
   showMsg(noLink ? noLink + " of " + ALL.length + " tickets have no usable link, so they are not clickable. Check the Ticket Link column in the Excel file." : "");
   fillFilters();
   $("updated").textContent = "Data refreshed " + loadedAt.toLocaleString([], {dateStyle: "medium", timeStyle: "short"});
   render();
 }
 
-const FILTERS = [
-  {k: "who", label: "FSE", get: t => t.who},
-  {k: "asm", label: "ASM", get: t => t.asm},
-  {k: "type", label: "TYPE", get: t => t.type},
-  {k: "status", label: "STATUS", get: t => t.status},
-  {k: "city", label: "CITY", get: t => t.city}
-];
-const SEL = {}; FILTERS.forEach(f => SEL[f.k] = new Set());
+let FILTERS = [], SEL = {}, CUR = "tickets", COLS = [];
+const STATE = {}, NODATE = "0000-01-01";
+const dueCell = t => fmtKey(t.key) + (t.moved ? ' <span class="mvt" title="was ' + fmtKey(t.ok) + '">moved</span>' : "");
+const MODES = {
+  tickets: {
+    name: "Tickets", noun: "tickets", store: "mhs_moves", url: () => CONFIG.DATA_URL, parse: wb => parseWorkbook(wb),
+    hint: "Search account, city, product, ticket\u2026",
+    filters: [
+      {k: "who", label: "FSE", get: t => t.who}, {k: "asm", label: "ASM", get: t => t.asm},
+      {k: "type", label: "TYPE", get: t => t.type}, {k: "status", label: "STATUS", get: t => t.status}, {k: "city", label: "CITY", get: t => t.city}
+    ],
+    cols: [
+      {k: "no", h: "Ticket number", v: t => t.no, cell: t => t.link ? '<a href="' + esc(t.link) + '" target="_blank" rel="noopener">' + esc(t.no) + "</a>" : esc(t.no)},
+      {k: "acc", h: "Account Name", v: t => t.account, cell: t => esc(t.account)},
+      {k: "city", h: "City", v: t => t.city, cell: t => esc(t.city)},
+      {k: "prod", h: "Model", v: t => t.product, cell: t => esc(t.product)},
+      {k: "key", h: "Due date", v: t => t.key, cell: dueCell}
+    ]
+  },
+  tasks: {
+    name: "Tasks", noun: "tasks", store: "mhs_moves_tasks", url: () => CONFIG.TASKS_URL, parse: wb => parseTasks(wb),
+    hint: "Search task, remarks, ASM\u2026",
+    filters: [{k: "asm", label: "ASM", get: t => t.who}, {k: "pf", label: "PENDING FROM", get: t => t.type}],
+    cols: [
+      {k: "req", h: "Request date", v: t => t.req, cell: t => fmtKey(t.req)},
+      {k: "who", h: "ASM", v: t => t.who, cell: t => esc(t.who)},
+      {k: "pf", h: "Pending from", v: t => t.type, cell: t => esc(t.type)},
+      {k: "sum", h: "Task summary", v: t => t.summary, cell: t => esc(t.summary), tx: 1},
+      {k: "rem", h: "Remarks", v: t => t.remarks, cell: t => esc(t.remarks), tx: 1},
+      {k: "days", h: "Days pending", v: t => t.days, cell: t => t.days},
+      {k: "key", h: "Next followup", v: t => t.key, cell: dueCell}
+    ]
+  }
+};
+
+/* ---- Tasks: read sheet "Task" (open tasks only) ---- */
+function parseTasks(wb){
+  const name = wb.SheetNames.find(n => n.trim().toLowerCase() === "task");
+  if (!name) throw new Error("Sheet \u201cTask\u201d was not found in this file.");
+  const ws = wb.Sheets[name], rng = XLSX.utils.decode_range(ws["!ref"]);
+  let hr = -1, cols = {};
+  for (let r = rng.s.r; r <= Math.min(rng.e.r, rng.s.r + 30) && hr < 0; r++){
+    const found = {};
+    for (let c = rng.s.c; c <= Math.min(rng.e.c, 30); c++){
+      const x = ws[XLSX.utils.encode_cell({r, c})];
+      if (x && x.v != null) found[String(x.v).replace(/\s+/g, " ").trim().toLowerCase()] = c;
+    }
+    if (found["next followup"] != null && found["request date"] != null){ hr = r; cols = found; }
+  }
+  if (hr < 0) throw new Error("Could not find the \u201cNext followup\u201d and \u201cRequest Date\u201d columns in the Task sheet.");
+  const C = {req: cols["request date"], pf: cols["pending from"], asm: cols["asm"], sum: cols["task summary"], rem: cols["remarks"], due: cols["next followup"], st: cols["status"]};
+  const cell = (r, c) => c == null ? undefined : ws[XLSX.utils.encode_cell({r, c})];
+  const txt = (r, c) => { const x = cell(r, c); return x && x.v != null ? String(x.w ?? x.v).replace(/\s+/g, " ").trim() : ""; };
+  const canon = {}, norm = (f, v) => v ? (canon[f + v.toLowerCase()] = canon[f + v.toLowerCase()] || v) : "";
+  const now = new Date(), t0 = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()), out = [], seen = {};
+  const dateOf = x => x && (parseDate(x.v) || parseDate(x.w));
+  for (let r = hr + 1; r <= rng.e.r; r++){
+    const summary = txt(r, C.sum);
+    if (!summary || txt(r, C.st).toLowerCase() !== "open") continue;
+    const rd = dateOf(cell(r, C.req)), dt = dateOf(cell(r, C.due));
+    const req = rd ? keyOf(rd.y, rd.m, rd.d) : NODATE, key = dt ? keyOf(dt.y, dt.m, dt.d) : NODATE, p = key.split("-");
+    let id = req + "|" + summary.toLowerCase(); seen[id] = (seen[id] || 0) + 1; if (seen[id] > 1) id += "#" + seen[id];
+    out.push({kind: "task", no: id, summary, status: "Open", who: norm("a", txt(r, C.asm)), type: norm("p", txt(r, C.pf)), remarks: txt(r, C.rem),
+      req, days: rd ? Math.max(0, Math.round((t0 - Date.UTC(rd.y, rd.m, rd.d)) / 864e5)) : 0,
+      link: "", account: "", city: "", product: "", serial: "", asm: "", y: +p[0], m: p[1] - 1, d: +p[2], key, ok: key, row: r});
+  }
+  out.meta = {sheet: name, dueC: C.due};
+  return out;
+}
 function textOk(t){
   const q = F.q.trim().toLowerCase();
-  return !q || (t.summary + " " + t.no + " " + t.who + " " + t.serial + " " + t.type).toLowerCase().includes(q);
+  return !q || (t.summary + " " + t.no + " " + t.who + " " + t.serial + " " + t.type + " " + (t.remarks || "")).toLowerCase().includes(q);
 }
 function matches(t, skip){
   return textOk(t) && FILTERS.every(f => f.k === skip || !SEL[f.k].size || SEL[f.k].has(f.get(t)));
@@ -347,7 +417,23 @@ function statusColor(s){
 
 function visible(){ return ALL.filter(t => matches(t, null)); }
 
+function dayColor(n){ return n > 21 ? "#ff7b7b" : n > 7 ? "#ffb454" : "#9be37a"; }
+function cardAttrs(t, tip, extra){
+  return 'class="card' + (extra || "") + (t.moved ? " mv" : "") + '" draggable="true" data-no="' + esc(t.no) + '" style="--h:' + hue(t.who) + '" title="' + esc(tip) + '"';
+}
+function taskCard(t, todayKey){
+  const tip = [t.summary, t.remarks && "Remarks: " + t.remarks, t.type && "Pending from: " + t.type, "ASM: " + (t.who || "-"), "Reported " + fmtKey(t.req) + " (" + t.days + " days)", t.moved && "Moved from " + fmtKey(t.ok)].filter(Boolean).join("\n");
+  const tag = t.key === NODATE ? '<span class="odt">no date</span>' : t.key < todayKey ? '<span class="odt">overdue</span>' : "";
+  return "<div " + cardAttrs(t, tip) + '><div class="r1"><span class="who">' + esc(t.who || "Unassigned") + '</span><span class="st" style="--c:' + dayColor(t.days) + '">' + t.days + 'd pending</span></div>' +
+    '<div class="no">' + esc(t.type) + tag + (t.moved ? '<span class="mvt">moved</span>' : "") + "</div>" +
+    '<div class="sum">' + esc(t.summary) + (t.remarks ? " \u2014 " + esc(t.remarks) : "") + "</div></div>";
+}
+function taskMini(t){
+  const tip = [t.summary, t.remarks, "Reported " + fmtKey(t.req)].filter(Boolean).join("\n");
+  return "<div " + cardAttrs(t, tip, " mini") + '><div class="m1"><b>' + t.days + 'd</b><span class="who">' + esc(t.who || "Unassigned") + '</span></div><div class="sum">' + esc(t.summary) + "</div><small>" + (t.key === NODATE ? "no follow-up date" : "follow-up " + fmtKey(t.key)) + "</small></div>";
+}
 function cardHtml(t, todayKey){
+  if (t.kind === "task") return taskCard(t, todayKey);
   const od = t.key < todayKey;
   const tip = [t.summary, "Ticket " + t.no, t.type, t.status, t.who && "Assigned: " + t.who, t.asm && "ASM: " + t.asm, t.serial && "Serial: " + t.serial, t.moved && "Moved from " + t.ok].filter(Boolean).join("\n");
   const inner =
@@ -377,9 +463,10 @@ function monthHtml(y, m, by, todayKey){
   return {html, n, all};
 }
 
-function fmtKey(k){ const p = k.split("-"); return +p[2] + " " + MN[p[1] - 1] + " " + p[0].slice(2); }
+function fmtKey(k){ if (!k || k === NODATE) return "no date"; const p = k.split("-"); return +p[2] + " " + MN[p[1] - 1] + " " + p[0].slice(2); }
 
 function miniHtml(t){
+  if (t.kind === "task") return taskMini(t);
   const tip = esc([t.summary, "Ticket " + t.no, t.status, "Due " + fmtKey(t.key)].join("\n"));
   const inner = '<div class="m1"><b>#' + esc(t.no) + '</b><span class="who">' + esc(t.who || "Unassigned") + "</span></div>" +
     '<div class="sum">' + esc(t.summary) + "</div><small>due " + fmtKey(t.key) + "</small>";
@@ -403,7 +490,7 @@ function render(){
   $("reset").disabled = !movedList.length;
   LISTS = {month: a.all, next: b.all, all: list, pd: pdList, moved: movedList};
   const L = (p, n) => '<button type="button" class="lnk" data-p="' + p + '">' + n + "</button>";
-  $("stats").innerHTML = "<span>" + L("month", a.n) + " tickets this month</span><span>" + L("next", b.n) + " next month</span><span>" + L("all", list.length) + " shown in total</span><span class='od'>" + L("pd", pdList.length) + " past due date</span>" + (movedList.length ? "<span>" + L("moved", movedList.length) + " moved (not yet in Excel)</span>" : "");
+  $("stats").innerHTML = "<span>" + L("month", a.n) + " " + MODES[CUR].noun + " this month</span><span>" + L("next", b.n) + " next month</span><span>" + L("all", list.length) + " shown in total</span><span class='od'>" + L("pd", pdList.length) + " past due date</span>" + (movedList.length ? "<span>" + L("moved", movedList.length) + " moved (not yet in Excel)</span>" : "");
   renderPanel();
 }
 
@@ -431,8 +518,7 @@ $("theme").onchange = e => setTheme(e.target.checked ? "light" : "dark");
 
 /* ---- moved dates (kept in this browser until reset, or until the Excel in GitHub has the same date) ---- */
 let WB = null, META = null, FILE = "work_planner.xlsx", MOVES = {}, dragNo = null;
-try { MOVES = JSON.parse(localStorage.getItem("mhs_moves") || "{}"); } catch (e){}
-function saveMoves(){ try { localStorage.setItem("mhs_moves", JSON.stringify(MOVES)); } catch (e){} }
+function saveMoves(){ try { localStorage.setItem(MODES[CUR].store, JSON.stringify(MOVES)); } catch (e){} }
 function readWb(buf){ return XLSX.read(new Uint8Array(buf), {type: "array", cellNF: true}); }
 function applyMoves(){
   const nos = new Set(ALL.map(t => t.no));
@@ -447,12 +533,15 @@ function applyMoves(){
 }
 
 /* ---- slicer-style filters (multi-select, linked to each other) ---- */
-FILTERS.forEach(f => {
-  const d = document.createElement("div");
-  d.className = "ms"; d.dataset.k = f.k;
-  d.innerHTML = '<button type="button" class="msb"></button><div class="mslist" hidden></div>';
-  $("filters").appendChild(d);
-});
+function buildFilterUI(){
+  $("filters").innerHTML = "";
+  FILTERS.forEach(f => {
+    const d = document.createElement("div");
+    d.className = "ms"; d.dataset.k = f.k;
+    d.innerHTML = '<button type="button" class="msb"></button><div class="mslist" hidden></div>';
+    $("filters").appendChild(d);
+  });
+}
 function closeLists(){ document.querySelectorAll(".mslist").forEach(l => l.hidden = true); }
 function onFilter(){ fillFilters(); render(); }
 $("filters").addEventListener("click", e => {
@@ -469,26 +558,20 @@ $("filters").addEventListener("change", e => {
 document.addEventListener("click", closeLists);
 
 /* ---- preview panel for the numbers ---- */
-const PT = {month: "Tickets this month", next: "Tickets next month", all: "All tickets shown", pd: "Past due tickets", moved: "Moved tickets (not yet in Excel)"};
+const PT = () => { const M = MODES[CUR]; return {month: M.name + " this month", next: M.name + " next month", all: "All " + M.noun + " shown", pd: "Past due " + M.noun, moved: "Moved " + M.noun + " (not yet in Excel)"}; };
 let PANEL = null, LISTS = {};
 function closePanel(){ PANEL = null; $("panel").hidden = true; }
-const COLS = [
-  {k: "no", h: "Ticket number", v: t => t.no},
-  {k: "acc", h: "Account Name", v: t => t.account},
-  {k: "city", h: "City", v: t => t.city},
-  {k: "prod", h: "Model", v: t => t.product},
-  {k: "key", h: "Due date", v: t => t.key}
-];
+
 let PSORT = {k: "key", dir: 1};
 const cmp = (a, b) => String(a).localeCompare(String(b), undefined, {numeric: true, sensitivity: "base"});
 function renderPanel(){
   if (!PANEL) return;
   const col = COLS.find(c => c.k === PSORT.k);
   const rows = (LISTS[PANEL] || []).slice().sort((p, q) => PSORT.dir * cmp(col.v(p), col.v(q)) || cmp(p.no, q.no));
-  $("ptitle").textContent = PT[PANEL] + " (" + rows.length + ")";
+  $("ptitle").textContent = PT()[PANEL] + " (" + rows.length + ")";
   const head = COLS.map(c => '<th><button type="button" class="sb" data-s="' + c.k + '">' + c.h + (c.k === PSORT.k ? (PSORT.dir > 0 ? " \u25b2" : " \u25bc") : "") + "</button></th>").join("");
-  const body = rows.map(t => "<tr><td>" + (t.link ? '<a href="' + esc(t.link) + '" target="_blank" rel="noopener">' + esc(t.no) + "</a>" : esc(t.no)) + "</td><td>" + esc(t.account) + "</td><td>" + esc(t.city) + "</td><td>" + esc(t.product) + "</td><td>" + fmtKey(t.key) + (t.moved ? ' <span class="mvt" title="was ' + fmtKey(t.ok) + '">moved</span>' : "") + "</td></tr>").join("");
-  $("pbody").innerHTML = rows.length ? '<table class="pt"><thead><tr>' + head + "</tr></thead><tbody>" + body + "</tbody></table>" : '<div class="empty">No tickets</div>';
+  const body = rows.map(t => "<tr>" + COLS.map(c => "<td" + (c.tx ? ' class="tx"' : "") + ">" + c.cell(t) + "</td>").join("") + "</tr>").join("");
+  $("pbody").innerHTML = rows.length ? '<table class="pt"><thead><tr>' + head + "</tr></thead><tbody>" + body + "</tbody></table>" : '<div class="empty">Nothing to show</div>';
   $("panel").hidden = false;
 }
 $("pbody").addEventListener("click", e => {
@@ -500,8 +583,8 @@ $("stats").addEventListener("click", e => { const b = e.target.closest("[data-p]
 $("pclose").onclick = closePanel;
 document.addEventListener("keydown", e => { if (e.key === "Escape") closePanel(); });
 
-/* ---- drag and drop: mouse = drag, touch = hold 3 s then slide ---- */
-const TOUCH = matchMedia("(hover: none) and (pointer: coarse)").matches, HOLD_MS = 3000;
+/* ---- drag and drop: mouse = drag, touch = hold 1 s then slide ---- */
+const TOUCH = matchMedia("(hover: none) and (pointer: coarse)").matches, HOLD_MS = 1000;
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 function todayK(){ const n = new Date(); return keyOf(n.getFullYear(), n.getMonth(), n.getDate()); }
 function moveTo(no, k){
@@ -593,22 +676,70 @@ $("reset").onclick = () => {
 
 /* ---- download Excel with the new Real Due dates ---- */
 const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fixStructRefs(wb){
+  let n = 0;
+  wb.SheetNames.forEach(name => {
+    const ws = wb.Sheets[name]; if (!ws || !ws["!ref"]) return;
+    const rng = XLSX.utils.decode_range(ws["!ref"]), hdr = {};
+    for (let r = rng.s.r; r <= Math.min(rng.e.r, rng.s.r + 12); r++)
+      for (let c = rng.s.c; c <= rng.e.c; c++){
+        const x = ws[XLSX.utils.encode_cell({r, c})];
+        if (x && x.t === "s" && x.v != null){ const k = String(x.v).trim(); if (!(k in hdr)) hdr[k] = c; }
+      }
+    for (const a in ws){
+      if (a[0] === "!") continue;
+      const c = ws[a];
+      if (c && typeof c.f === "string" && c.f.includes("[#This Row]")){
+        const row = XLSX.utils.decode_cell(a).r + 1;
+        c.f = c.f.replace(/[A-Za-z_][\w.]*\[\[#This Row\],\[([^\]]+)\]\]/g, (m, col) => (col in hdr) ? XLSX.utils.encode_col(hdr[col]) + row : m);
+        n++;
+      }
+    }
+  });
+  return n;
+}
 $("dl").onclick = () => {
   if (!WB || !META){ showMsg("Load the data first."); return; }
   const sh = WB.Sheets[META.sheet]; let n = 0;
   ALL.forEach(t => {
     if (!t.moved) return;
-    const c = sh[XLSX.utils.encode_cell({r: t.row, c: META.dueC})]; if (!c) return;
-    if (c.t === "n") c.v = Math.round((Date.UTC(t.y, t.m, t.d) - Date.UTC(1899, 11, 30)) / 864e5);
+    const a = XLSX.utils.encode_cell({r: t.row, c: META.dueC}), serial = Math.round((Date.UTC(t.y, t.m, t.d) - Date.UTC(1899, 11, 30)) / 864e5);
+    let c = sh[a];
+    if (!c || c.v == null || c.v === ""){ c = sh[a] = {t: "n", v: serial, z: "dd-mmm-yy"}; }
+    else if (c.t === "n") c.v = serial;
     else { c.v = pad2(t.d) + "/" + MN[t.m] + "/" + (/\d{4}\s*$/.test(String(c.v)) ? t.y : String(t.y).slice(2)); c.t = "s"; }
     delete c.w; delete c.f; n++;
   });
+  const fx = fixStructRefs(WB);
   XLSX.writeFile(WB, FILE.replace(/\.xlsx?$/i, "") + "_updated.xlsx");
-  showMsg(n + " due date(s) changed in the downloaded file. Upload it to GitHub to make the change permanent.", true);
+  showMsg(n + (CUR === "tasks" ? " follow-up" : " due") + " date(s) changed in the downloaded file." + (fx ? " Excel table formulas were converted to normal cell formulas and table styling may be lost." : "") + " Upload it to GitHub to make the change permanent.", true);
 };
 
-render();
-load();
+/* ---- switching between Tickets and Tasks ---- */
+function newState(m){
+  const st = {ALL: [], WB: null, META: null, FILE: m + ".xlsx", MOVES: {}, SEL: {}, loadedAt: null, q: "", loaded: false};
+  MODES[m].filters.forEach(f => st.SEL[f.k] = new Set());
+  try { st.MOVES = JSON.parse(localStorage.getItem(MODES[m].store) || "{}"); } catch (e){}
+  return st;
+}
+function setMode(m, first){
+  if (!first) Object.assign(STATE[CUR], {ALL, WB, META, FILE, MOVES, SEL, loadedAt, q: F.q});
+  CUR = m;
+  const st = STATE[m];
+  ({ALL, WB, META, FILE, MOVES, SEL, loadedAt} = st);
+  F.q = st.q; $("fQ").value = F.q; $("fQ").placeholder = MODES[m].hint;
+  FILTERS = MODES[m].filters; COLS = MODES[m].cols;
+  PANEL = null; PSORT = {k: "key", dir: 1}; $("panel").hidden = true; showMsg("");
+  document.querySelectorAll("#modeSeg button").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+  try { localStorage.setItem("mhs_mode", m); } catch (e){}
+  buildFilterUI(); fillFilters(); render();
+  $("updated").textContent = loadedAt ? "Data refreshed " + loadedAt.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "Loading data\u2026";
+  if (!st.loaded || (CONFIG.REFRESH_MIN > 0 && Date.now() - loadedAt > CONFIG.REFRESH_MIN * 60000)) load();
+}
+$("modeSeg").addEventListener("click", e => { const b = e.target.closest("button[data-m]"); if (b && b.dataset.m !== CUR) setMode(b.dataset.m); });
+STATE.tickets = newState("tickets"); STATE.tasks = newState("tasks");
+let startMode = "tickets"; try { const sm = localStorage.getItem("mhs_mode"); if (MODES[sm]) startMode = sm; } catch (e){}
+setMode(startMode, true);
 if (CONFIG.REFRESH_MIN > 0) setInterval(load, CONFIG.REFRESH_MIN * 60000);
 </script>
 </body>
