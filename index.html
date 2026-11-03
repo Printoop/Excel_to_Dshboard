@@ -110,6 +110,22 @@ header .meta{margin-top:6px}
 .seg button{border:0;border-radius:0;background:transparent;padding:6px 20px;color:var(--muted)}
 .seg button.on{background:var(--accent);color:var(--onaccent);font-weight:600}
 .pt td.tx{white-space:normal;min-width:180px;max-width:320px}
+.dr{display:flex;gap:6px;align-items:center}
+.add{width:20px;height:20px;padding:0;line-height:1;border-radius:50%;font-size:14px;color:var(--accent);background:var(--panel2);border:1px solid var(--line);cursor:pointer}
+.add:hover{border-color:var(--accent)}
+#tf{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+#tf[hidden]{display:none}
+.tfbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:min(440px,100%);display:flex;flex-direction:column;gap:10px;max-height:100%;overflow:auto}
+.tfbox h2{margin:0 0 4px;font-size:17px}
+.tfbox label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}
+.tfbox input,.tfbox textarea,.tfbox select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit}
+.tfst{color:var(--muted);font-size:12.5px}
+.tfbox label[hidden]{display:none}
+.tfbox input:disabled,.tfbox textarea:disabled{opacity:.65}
+.tferr{color:var(--bad);font-size:12.5px;min-height:1em}
+.tfbtn{display:flex;gap:8px;align-items:center}
+.tfbtn .grow{flex:1}
+.tfbtn .pri{background:var(--accent);color:var(--onaccent);border-color:var(--accent);font-weight:600}
 @media (max-width:760px){
   header,.bar,.stats,.wrap{padding-left:12px;padding-right:12px}
   #msg{margin-left:12px;margin-right:12px}
@@ -129,6 +145,7 @@ header .meta{margin-top:6px}
 @media (hover:none) and (pointer:coarse){
   .card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
   .touchhint{display:block}
+  .add{width:30px;height:30px;font-size:17px}
 }
 </style>
 </head>
@@ -167,6 +184,20 @@ header .meta{margin-top:6px}
   <div class="dow"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div>
   <div class="grid" id="grid2"></div>
 </div>
+
+<div id="tf" hidden><div class="tfbox" role="dialog" aria-modal="true" aria-labelledby="tfTitle">
+  <h2 id="tfTitle">Add task</h2>
+  <label>Request date<input type="date" id="tfReq"></label>
+  <label>Pending from<input id="tfPf" list="dlPf" autocomplete="off"></label>
+  <label>ASM<input id="tfAsm" list="dlAsm" autocomplete="off"></label>
+  <label>Task summary<textarea id="tfSum" rows="3"></textarea></label>
+  <label>Next followup<input type="date" id="tfDue"></label>
+  <label id="tfStW" hidden>Status<select id="tfSt"><option>Open</option><option>Closed</option></select></label>
+  <div class="tfst" id="tfStTxt">Status: Open</div>
+  <div class="tferr" id="tfErr" role="alert"></div>
+  <div class="tfbtn"><button type="button" id="tfDel" hidden>Delete</button><button type="button" id="tfClose" hidden>Mark closed</button><span class="grow"></span><button type="button" id="tfCancel">Cancel</button><button type="button" id="tfSave" class="pri">Save</button></div>
+  <datalist id="dlPf"></datalist><datalist id="dlAsm"></datalist>
+</div></div>
 
 <aside id="panel" hidden aria-label="Ticket preview"><div class="ph"><span id="ptitle"></span><button id="pclose" type="button" aria-label="Close">&#10005;</button></div><div id="pbody"></div></aside>
 
@@ -297,7 +328,7 @@ async function load(){
 }
 
 function ingest(wb){
-  WB = wb; ALL = MODES[CUR].parse(wb); META = ALL.meta; applyMoves(); STATE[CUR].loaded = true;
+  WB = wb; ALL = MODES[CUR].parse(wb); META = ALL.meta; STATE[CUR].loaded = true; if (CUR === "tasks") mergeLocal(); applyMoves();
   loadedAt = new Date();
   const noLink = CUR === "tickets" ? ALL.filter(t => !t.link).length : 0;
   showMsg(noLink ? noLink + " of " + ALL.length + " tickets have no usable link, so they are not clickable. Check the Ticket Link column in the Excel file." : "");
@@ -327,14 +358,13 @@ const MODES = {
   },
   tasks: {
     name: "Tasks", noun: "tasks", store: "mhs_moves_tasks", url: () => CONFIG.TASKS_URL, parse: wb => parseTasks(wb),
-    hint: "Search task, remarks, ASM\u2026",
+    hint: "Search task, ASM, pending from\u2026",
     filters: [{k: "asm", label: "ASM", get: t => t.who}, {k: "pf", label: "PENDING FROM", get: t => t.type}],
     cols: [
       {k: "req", h: "Request date", v: t => t.req, cell: t => fmtKey(t.req)},
       {k: "who", h: "ASM", v: t => t.who, cell: t => esc(t.who)},
       {k: "pf", h: "Pending from", v: t => t.type, cell: t => esc(t.type)},
       {k: "sum", h: "Task summary", v: t => t.summary, cell: t => esc(t.summary), tx: 1},
-      {k: "rem", h: "Remarks", v: t => t.remarks, cell: t => esc(t.remarks), tx: 1},
       {k: "days", h: "Days pending", v: t => t.days, cell: t => t.days},
       {k: "key", h: "Next followup", v: t => t.key, cell: dueCell}
     ]
@@ -356,7 +386,7 @@ function parseTasks(wb){
     if (found["next followup"] != null && found["request date"] != null){ hr = r; cols = found; }
   }
   if (hr < 0) throw new Error("Could not find the \u201cNext followup\u201d and \u201cRequest Date\u201d columns in the Task sheet.");
-  const C = {req: cols["request date"], pf: cols["pending from"], asm: cols["asm"], sum: cols["task summary"], rem: cols["remarks"], due: cols["next followup"], st: cols["status"]};
+  const C = {req: cols["request date"], pf: cols["pending from"], asm: cols["asm"], sum: cols["task summary"], days: cols["pending for days"], due: cols["next followup"], st: cols["status"]};
   const cell = (r, c) => c == null ? undefined : ws[XLSX.utils.encode_cell({r, c})];
   const txt = (r, c) => { const x = cell(r, c); return x && x.v != null ? String(x.w ?? x.v).replace(/\s+/g, " ").trim() : ""; };
   const canon = {}, norm = (f, v) => v ? (canon[f + v.toLowerCase()] = canon[f + v.toLowerCase()] || v) : "";
@@ -368,19 +398,39 @@ function parseTasks(wb){
     const rd = dateOf(cell(r, C.req)), dt = dateOf(cell(r, C.due));
     const req = rd ? keyOf(rd.y, rd.m, rd.d) : NODATE, key = dt ? keyOf(dt.y, dt.m, dt.d) : NODATE, p = key.split("-");
     let id = req + "|" + summary.toLowerCase(); seen[id] = (seen[id] || 0) + 1; if (seen[id] > 1) id += "#" + seen[id];
-    out.push({kind: "task", no: id, summary, status: "Open", who: norm("a", txt(r, C.asm)), type: norm("p", txt(r, C.pf)), remarks: txt(r, C.rem),
+    out.push({kind: "task", no: id, summary, status: "Open", who: norm("a", txt(r, C.asm)), type: norm("p", txt(r, C.pf)),
       req, days: rd ? Math.max(0, Math.round((t0 - Date.UTC(rd.y, rd.m, rd.d)) / 864e5)) : 0,
       link: "", account: "", city: "", product: "", serial: "", asm: "", y: +p[0], m: p[1] - 1, d: +p[2], key, ok: key, row: r});
   }
-  out.meta = {sheet: name, dueC: C.due};
+  out.meta = {sheet: name, dueC: C.due, hr, C};
   return out;
+}
+
+/* ---- tasks added on this device (kept until the Excel in GitHub has them) ---- */
+let LOCAL = [];
+try { LOCAL = JSON.parse(localStorage.getItem("mhs_newtasks") || "[]"); } catch (e){}
+function saveLocal(){ try { localStorage.setItem("mhs_newtasks", JSON.stringify(LOCAL)); } catch (e){} }
+function localObj(x){
+  const rp = x.req.split("-"), dp = x.due.split("-"), n = new Date();
+  return {kind: "task", local: true, no: x.id, summary: x.sum, status: "Open", who: x.asm, type: x.pf, req: x.req,
+    days: Math.max(0, Math.round((Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) - Date.UTC(+rp[0], rp[1] - 1, +rp[2])) / 864e5)),
+    link: "", account: "", city: "", product: "", serial: "", asm: "", y: +dp[0], m: dp[1] - 1, d: +dp[2], key: x.due, ok: x.due, row: -1};
+}
+function mergeLocal(){
+  const ids = new Set(ALL.map(t => t.no)), keep = LOCAL.filter(x => !ids.has(x.id));
+  if (keep.length !== LOCAL.length){ LOCAL = keep; saveLocal(); }
+  ALL = ALL.concat(LOCAL.map(localObj));
+}
+function rebuildLocal(){
+  ALL = ALL.filter(t => !t.local).concat(LOCAL.map(localObj));
+  applyMoves(); fillFilters(); render();
 }
 function textOk(t){
   const q = F.q.trim().toLowerCase();
-  return !q || (t.summary + " " + t.no + " " + t.who + " " + t.serial + " " + t.type + " " + (t.remarks || "")).toLowerCase().includes(q);
+  return !q || (t.summary + " " + t.no + " " + t.who + " " + t.serial + " " + t.type).toLowerCase().includes(q);
 }
 function matches(t, skip){
-  return textOk(t) && FILTERS.every(f => f.k === skip || !SEL[f.k].size || SEL[f.k].has(f.get(t)));
+  return !t.cl && textOk(t) && FILTERS.every(f => f.k === skip || !SEL[f.k].size || SEL[f.k].has(f.get(t)));
 }
 function fillFilters(){
   const avail = () => {
@@ -419,18 +469,21 @@ function visible(){ return ALL.filter(t => matches(t, null)); }
 
 function dayColor(n){ return n > 21 ? "#ff7b7b" : n > 7 ? "#ffb454" : "#9be37a"; }
 function cardAttrs(t, tip, extra){
-  return 'class="card' + (extra || "") + (t.moved ? " mv" : "") + '" draggable="true" data-no="' + esc(t.no) + '" style="--h:' + hue(t.who) + '" title="' + esc(tip) + '"';
+  return 'class="card' + (extra || "") + (t.moved ? " mv" : "") + '"' + (t.local ? ' data-local="1"' : "") + ' draggable="true" data-no="' + esc(t.no) + '" style="--h:' + hue(t.who) + '" title="' + esc(tip) + '"';
+}
+function taskTag(t, todayKey){
+  return (t.key === NODATE ? '<span class="odt">no date</span>' : t.key < todayKey ? '<span class="odt">overdue</span>' : "") +
+    (t.local ? '<span class="mvt">new</span>' : t.moved ? '<span class="mvt">moved</span>' : "");
 }
 function taskCard(t, todayKey){
-  const tip = [t.summary, t.remarks && "Remarks: " + t.remarks, t.type && "Pending from: " + t.type, "ASM: " + (t.who || "-"), "Reported " + fmtKey(t.req) + " (" + t.days + " days)", t.moved && "Moved from " + fmtKey(t.ok)].filter(Boolean).join("\n");
-  const tag = t.key === NODATE ? '<span class="odt">no date</span>' : t.key < todayKey ? '<span class="odt">overdue</span>' : "";
+  const tip = [t.summary, t.type && "Pending from: " + t.type, "ASM: " + (t.who || "-"), "Reported " + fmtKey(t.req) + " (" + t.days + " days)", t.local ? "New: not yet in Excel. Tap to edit." : "Tap to change the follow-up date or close this task", t.moved && "Moved from " + fmtKey(t.ok)].filter(Boolean).join("\n");
   return "<div " + cardAttrs(t, tip) + '><div class="r1"><span class="who">' + esc(t.who || "Unassigned") + '</span><span class="st" style="--c:' + dayColor(t.days) + '">' + t.days + 'd pending</span></div>' +
-    '<div class="no">' + esc(t.type) + tag + (t.moved ? '<span class="mvt">moved</span>' : "") + "</div>" +
-    '<div class="sum">' + esc(t.summary) + (t.remarks ? " \u2014 " + esc(t.remarks) : "") + "</div></div>";
+    '<div class="no">' + esc(t.type) + taskTag(t, todayKey) + "</div>" +
+    '<div class="sum">' + esc(t.summary) + "</div></div>";
 }
 function taskMini(t){
-  const tip = [t.summary, t.remarks, "Reported " + fmtKey(t.req)].filter(Boolean).join("\n");
-  return "<div " + cardAttrs(t, tip, " mini") + '><div class="m1"><b>' + t.days + 'd</b><span class="who">' + esc(t.who || "Unassigned") + '</span></div><div class="sum">' + esc(t.summary) + "</div><small>" + (t.key === NODATE ? "no follow-up date" : "follow-up " + fmtKey(t.key)) + "</small></div>";
+  const tip = [t.summary, "Reported " + fmtKey(t.req), t.local ? "New: tap to edit" : "Tap to update or close"].filter(Boolean).join("\n");
+  return "<div " + cardAttrs(t, tip, " mini") + '><div class="m1"><b>' + t.days + 'd</b><span class="who">' + esc(t.who || "Unassigned") + '</span></div><div class="sum">' + esc(t.summary) + "</div><small>" + (t.key === NODATE ? "no follow-up date" : "follow-up " + fmtKey(t.key)) + (t.local ? " \u00b7 new" : "") + "</small></div>";
 }
 function cardHtml(t, todayKey){
   if (t.kind === "task") return taskCard(t, todayKey);
@@ -455,7 +508,7 @@ function monthHtml(y, m, by, todayKey){
     n += items.length; all.push(...items);
     const open = expanded.has(k), shown = open ? items : items.slice(0, 3);
     html += '<div class="day' + (k === todayKey ? " today" : "") + (k < todayKey ? " past" : "") + (items.length ? "" : " none") + '" data-k="' + k + '">' +
-      '<div class="dn"><span>' + d + '<small class="wd"> ' + WD[new Date(y, m, d).getDay()] + '</small></span><small>' + (items.length ? items.length : "") + "</small></div>" +
+      '<div class="dn"><span>' + d + '<small class="wd"> ' + WD[new Date(y, m, d).getDay()] + '</small></span><span class="dr"><small>' + (items.length ? items.length : "") + "</small>" + (CUR === "tasks" && k >= todayKey ? '<button type="button" class="add" data-add="' + k + '" title="Add a task on this date" aria-label="Add a task">+</button>' : "") + "</span></div>" +
       shown.map(t => cardHtml(t, todayKey)).join("") +
       (items.length > 3 ? '<button class="more" data-k="' + k + '">' + (open ? "Show less" : "+" + (items.length - 3) + " more") + "</button>" : "") +
       "</div>";
@@ -484,13 +537,13 @@ function render(){
   const a = monthHtml(y, m, by, todayKey), b = monthHtml(nx.getFullYear(), nx.getMonth(), by, todayKey);
   $("grid").innerHTML = a.html; $("grid2").innerHTML = b.html;
   const pdList = list.filter(t => t.key < todayKey).sort((p, q) => p.key.localeCompare(q.key));
-  const movedList = ALL.filter(t => t.moved);
+  const movedList = ALL.filter(t => t.moved && !t.cl), newList = ALL.filter(t => t.local), closedList = ALL.filter(t => t.cl);
   $("pdWrap").hidden = !pdList.length; $("pdCount").textContent = "(" + pdList.length + ")";
   $("pdStrip").innerHTML = pdList.map(miniHtml).join("");
   $("reset").disabled = !movedList.length;
-  LISTS = {month: a.all, next: b.all, all: list, pd: pdList, moved: movedList};
+  LISTS = {month: a.all, next: b.all, all: list, pd: pdList, moved: movedList, new: newList, closed: closedList};
   const L = (p, n) => '<button type="button" class="lnk" data-p="' + p + '">' + n + "</button>";
-  $("stats").innerHTML = "<span>" + L("month", a.n) + " " + MODES[CUR].noun + " this month</span><span>" + L("next", b.n) + " next month</span><span>" + L("all", list.length) + " shown in total</span><span class='od'>" + L("pd", pdList.length) + " past due date</span>" + (movedList.length ? "<span>" + L("moved", movedList.length) + " moved (not yet in Excel)</span>" : "");
+  $("stats").innerHTML = "<span>" + L("month", a.n) + " " + MODES[CUR].noun + " this month</span><span>" + L("next", b.n) + " next month</span><span>" + L("all", list.length) + " shown in total</span><span class='od'>" + L("pd", pdList.length) + " past due date</span>" + (movedList.length ? "<span>" + L("moved", movedList.length) + " moved (not yet in Excel)</span>" : "") + (newList.length ? "<span>" + L("new", newList.length) + " new (not yet in Excel)</span>" : "") + (closedList.length ? "<span>" + L("closed", closedList.length) + " closed (not yet in Excel)</span>" : "");
   renderPanel();
 }
 
@@ -500,6 +553,8 @@ $("today").onclick = () => { view = new Date(); view.setDate(1); render(); };
 $("fQ").oninput = e => { F.q = e.target.value; fillFilters(); render(); };
 $("reload").onclick = load;
 $("wrap").addEventListener("click", e => {
+  const a = e.target.closest(".add"); if (a){ openForm(null, a.dataset.add); return; }
+  const lc = CUR === "tasks" && e.target.closest(".card[data-no]"); if (lc){ openForm(lc.dataset.no); return; }
   const b = e.target.closest(".more"); if (!b) return;
   expanded.has(b.dataset.k) ? expanded.delete(b.dataset.k) : expanded.add(b.dataset.k);
   render();
@@ -523,13 +578,19 @@ function readWb(buf){ return XLSX.read(new Uint8Array(buf), {type: "array", cell
 function applyMoves(){
   const nos = new Set(ALL.map(t => t.no));
   let dirty = false;
-  for (const n in MOVES) if (!nos.has(n)){ delete MOVES[n]; dirty = true; }
+  if (STATE[CUR].loaded) for (const n in MOVES) if (!nos.has(n)){ delete MOVES[n]; dirty = true; }
   ALL.forEach(t => {
     if (MOVES[t.no] === t.ok){ delete MOVES[t.no]; dirty = true; }
     const k = MOVES[t.no] || t.ok, p = k.split("-");
     t.moved = k !== t.ok; t.y = +p[0]; t.m = p[1] - 1; t.d = +p[2]; t.key = k;
   });
   if (dirty) saveMoves();
+  if (CUR === "tasks"){
+    let dc = false;
+    if (STATE[CUR].loaded) for (const n in CLOSED) if (!nos.has(n)){ delete CLOSED[n]; dc = true; }
+    ALL.forEach(t => { t.cl = !!CLOSED[t.no]; });
+    if (dc) saveClosed();
+  }
 }
 
 /* ---- slicer-style filters (multi-select, linked to each other) ---- */
@@ -558,7 +619,7 @@ $("filters").addEventListener("change", e => {
 document.addEventListener("click", closeLists);
 
 /* ---- preview panel for the numbers ---- */
-const PT = () => { const M = MODES[CUR]; return {month: M.name + " this month", next: M.name + " next month", all: "All " + M.noun + " shown", pd: "Past due " + M.noun, moved: "Moved " + M.noun + " (not yet in Excel)"}; };
+const PT = () => { const M = MODES[CUR]; return {month: M.name + " this month", next: M.name + " next month", all: "All " + M.noun + " shown", pd: "Past due " + M.noun, moved: "Moved " + M.noun + " (not yet in Excel)", new: "New tasks (not yet in Excel)", closed: "Closed tasks (not yet in Excel)"}; };
 let PANEL = null, LISTS = {};
 function closePanel(){ PANEL = null; $("panel").hidden = true; }
 
@@ -566,22 +627,25 @@ let PSORT = {k: "key", dir: 1};
 const cmp = (a, b) => String(a).localeCompare(String(b), undefined, {numeric: true, sensitivity: "base"});
 function renderPanel(){
   if (!PANEL) return;
-  const col = COLS.find(c => c.k === PSORT.k);
+  const CL = PANEL === "closed" ? COLS.concat([{k: "act", h: "", v: () => "", cell: t => '<button type="button" class="lnk" data-reopen="' + esc(t.no) + '">Reopen</button>'}]) : COLS;
+  const col = CL.find(c => c.k === PSORT.k) || COLS[0];
   const rows = (LISTS[PANEL] || []).slice().sort((p, q) => PSORT.dir * cmp(col.v(p), col.v(q)) || cmp(p.no, q.no));
   $("ptitle").textContent = PT()[PANEL] + " (" + rows.length + ")";
-  const head = COLS.map(c => '<th><button type="button" class="sb" data-s="' + c.k + '">' + c.h + (c.k === PSORT.k ? (PSORT.dir > 0 ? " \u25b2" : " \u25bc") : "") + "</button></th>").join("");
-  const body = rows.map(t => "<tr>" + COLS.map(c => "<td" + (c.tx ? ' class="tx"' : "") + ">" + c.cell(t) + "</td>").join("") + "</tr>").join("");
+  const head = CL.map(c => c.k === "act" ? "<th></th>" : '<th><button type="button" class="sb" data-s="' + c.k + '">' + c.h + (c.k === PSORT.k ? (PSORT.dir > 0 ? " \u25b2" : " \u25bc") : "") + "</button></th>").join("");
+  const body = rows.map(t => "<tr>" + CL.map(c => "<td" + (c.tx ? ' class="tx"' : "") + ">" + c.cell(t) + "</td>").join("") + "</tr>").join("");
   $("pbody").innerHTML = rows.length ? '<table class="pt"><thead><tr>' + head + "</tr></thead><tbody>" + body + "</tbody></table>" : '<div class="empty">Nothing to show</div>';
   $("panel").hidden = false;
 }
 $("pbody").addEventListener("click", e => {
+  const ro = e.target.closest("[data-reopen]");
+  if (ro){ delete CLOSED[ro.dataset.reopen]; saveClosed(); applyMoves(); fillFilters(); render(); return; }
   const b = e.target.closest(".sb"); if (!b) return;
   PSORT = {k: b.dataset.s, dir: PSORT.k === b.dataset.s ? -PSORT.dir : 1};
   renderPanel();
 });
 $("stats").addEventListener("click", e => { const b = e.target.closest("[data-p]"); if (b){ PANEL = b.dataset.p; renderPanel(); } });
 $("pclose").onclick = closePanel;
-document.addEventListener("keydown", e => { if (e.key === "Escape") closePanel(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape"){ closePanel(); closeForm(); } });
 
 /* ---- drag and drop: mouse = drag, touch = hold 1 s then slide ---- */
 const TOUCH = matchMedia("(hover: none) and (pointer: coarse)").matches, HOLD_MS = 1000;
@@ -589,6 +653,7 @@ const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 function todayK(){ const n = new Date(); return keyOf(n.getFullYear(), n.getMonth(), n.getDate()); }
 function moveTo(no, k){
   const t = ALL.find(x => x.no === no);
+  if (t && t.local){ const x = LOCAL.find(l => l.id === no); if (x){ x.due = k; saveLocal(); rebuildLocal(); } return; }
   if (t && k !== t.ok) MOVES[no] = k; else delete MOVES[no];
   saveMoves(); applyMoves(); render();
 }
@@ -698,11 +763,47 @@ function fixStructRefs(wb){
   });
   return n;
 }
+function rewriteTaskSheet(sh, closedRows){
+  const C = META.C, hr = META.hr, enc = XLSX.utils.encode_cell, rng = XLSX.utils.decode_range(sh["!ref"]);
+  const val = x => x && x.v != null ? String(x.v).trim() : "";
+  const serialOf = (y, m, d) => Math.round((Date.UTC(y, m, d) - Date.UTC(1899, 11, 30)) / 864e5);
+  const now = new Date(), today = serialOf(now.getFullYear(), now.getMonth(), now.getDate());
+  const keep = []; let removed = 0;
+  for (let r = hr + 1; r <= rng.e.r; r++){
+    const cells = {};
+    for (let c = rng.s.c; c <= rng.e.c; c++){ const x = sh[enc({r, c})]; if (x){ cells[c] = x; delete sh[enc({r, c})]; } }
+    const has = [C.req, C.pf, C.asm, C.sum, C.due, C.st].some(c => c != null && val(cells[c]) !== "");
+    if (!has) continue;
+    if (val(cells[C.st]).toLowerCase() === "closed" || closedRows.has(r)){ removed++; continue; }
+    keep.push(cells);
+  }
+  const rc = XLSX.utils.encode_col(C.req);
+  const daysCell = (r, reqSerial) => ({t: "n", v: reqSerial == null ? 0 : Math.max(0, today - reqSerial), f: 'IF(ISBLANK(' + rc + (r + 1) + '),"",TODAY()-' + rc + (r + 1) + ')'});
+  keep.forEach((cells, i) => {
+    const r = hr + 1 + i;
+    for (const c in cells) sh[enc({r, c: +c})] = cells[c];
+    if (C.days != null){ const q = cells[C.req]; sh[enc({r, c: C.days})] = daysCell(r, q && q.t === "n" ? q.v : null); }
+  });
+  const z = (keep[0] && keep[0][C.req] && keep[0][C.req].z) || "dd-mmm-yy", dp = k => { const p = k.split("-"); return serialOf(+p[0], p[1] - 1, +p[2]); };
+  LOCAL.forEach((x, j) => {
+    const r = hr + 1 + keep.length + j;
+    if (C.req != null) sh[enc({r, c: C.req})] = {t: "n", v: dp(x.req), z};
+    if (C.pf != null) sh[enc({r, c: C.pf})] = {t: "s", v: x.pf};
+    if (C.asm != null) sh[enc({r, c: C.asm})] = {t: "s", v: x.asm};
+    if (C.sum != null) sh[enc({r, c: C.sum})] = {t: "s", v: x.sum};
+    if (C.due != null) sh[enc({r, c: C.due})] = {t: "n", v: dp(x.due), z};
+    if (C.st != null) sh[enc({r, c: C.st})] = {t: "s", v: "Open"};
+    if (C.days != null) sh[enc({r, c: C.days})] = daysCell(r, dp(x.req));
+  });
+  const last = Math.max(hr, hr + keep.length + LOCAL.length);
+  sh["!ref"] = XLSX.utils.encode_range({s: rng.s, e: {r: last, c: rng.e.c}});
+  return {added: LOCAL.length, removed};
+}
 $("dl").onclick = () => {
   if (!WB || !META){ showMsg("Load the data first."); return; }
-  const sh = WB.Sheets[META.sheet]; let n = 0;
+  const sh = WB.Sheets[META.sheet]; let n = 0, extra = "";
   ALL.forEach(t => {
-    if (!t.moved) return;
+    if (!t.moved || t.local || t.cl) return;
     const a = XLSX.utils.encode_cell({r: t.row, c: META.dueC}), serial = Math.round((Date.UTC(t.y, t.m, t.d) - Date.UTC(1899, 11, 30)) / 864e5);
     let c = sh[a];
     if (!c || c.v == null || c.v === ""){ c = sh[a] = {t: "n", v: serial, z: "dd-mmm-yy"}; }
@@ -710,9 +811,70 @@ $("dl").onclick = () => {
     else { c.v = pad2(t.d) + "/" + MN[t.m] + "/" + (/\d{4}\s*$/.test(String(c.v)) ? t.y : String(t.y).slice(2)); c.t = "s"; }
     delete c.w; delete c.f; n++;
   });
+  if (CUR === "tasks"){ const r = rewriteTaskSheet(sh, new Set(ALL.filter(t => t.cl && !t.local).map(t => t.row))); extra = " " + r.added + " new task(s) added, " + r.removed + " closed task(s) removed."; }
   const fx = fixStructRefs(WB);
   XLSX.writeFile(WB, FILE.replace(/\.xlsx?$/i, "") + "_updated.xlsx");
-  showMsg(n + (CUR === "tasks" ? " follow-up" : " due") + " date(s) changed in the downloaded file." + (fx ? " Excel table formulas were converted to normal cell formulas and table styling may be lost." : "") + " Upload it to GitHub to make the change permanent.", true);
+  showMsg(n + (CUR === "tasks" ? " follow-up" : " due") + " date(s) changed in the downloaded file." + extra + (fx ? " Excel table formulas were converted to normal cell formulas and table styling may be lost." : "") + " Upload it to GitHub to make the change permanent.", true);
+};
+
+/* ---- add / edit a task (Tasks mode) ---- */
+let EDIT = null, EXIST = null, delArm = 0, CLOSED = {};
+try { CLOSED = JSON.parse(localStorage.getItem("mhs_closed_tasks") || "{}"); } catch (e){}
+function saveClosed(){ try { localStorage.setItem("mhs_closed_tasks", JSON.stringify(CLOSED)); } catch (e){} }
+const tfBad = m => { $("tfErr").textContent = m; };
+function fillLists(){
+  const u = f => [...new Set(ALL.map(f).filter(Boolean))].sort(cmp).map(v => '<option value="' + esc(v) + '">').join("");
+  $("dlPf").innerHTML = u(t => t.type); $("dlAsm").innerHTML = u(t => t.who);
+}
+function openForm(id, k){
+  const loc = id ? LOCAL.find(l => l.id === id) : null, ex = id && !loc ? ALL.find(t => t.no === id && !t.local) : null;
+  if (id && !loc && !ex) return;
+  EDIT = loc ? loc.id : null; EXIST = ex ? ex.no : null; fillLists();
+  ["tfReq", "tfPf", "tfAsm", "tfSum"].forEach(i => $(i).disabled = !!ex);
+  $("tfTitle").textContent = loc ? "Edit task (new, not yet in Excel)" : ex ? "Update task" : "Add task";
+  if (ex){
+    $("tfReq").value = ex.req === NODATE ? "" : ex.req; $("tfPf").value = ex.type; $("tfAsm").value = ex.who;
+    $("tfSum").value = ex.summary; $("tfDue").value = ex.key === NODATE ? "" : ex.key;
+  } else {
+    $("tfReq").value = loc ? loc.req : todayK(); $("tfPf").value = loc ? loc.pf : ""; $("tfAsm").value = loc ? loc.asm : "";
+    $("tfSum").value = loc ? loc.sum : ""; $("tfDue").value = loc ? loc.due : k;
+  }
+  $("tfStW").hidden = !ex; $("tfSt").value = "Open"; $("tfStTxt").hidden = !!ex; $("tfClose").hidden = !ex;
+  $("tfErr").textContent = ""; $("tfDel").hidden = !loc; $("tfDel").textContent = "Delete"; clearTimeout(delArm); delArm = 0;
+  $("tf").hidden = false; (ex ? $("tfDue") : $("tfSum")).focus();
+}
+function closeForm(){ $("tf").hidden = true; EDIT = null; EXIST = null; }
+function applyExisting(close){
+  const t = ALL.find(x => x.no === EXIST && !x.local);
+  if (!t){ closeForm(); return; }
+  const due = $("tfDue").value;
+  if (!close && !due) return tfBad("Please choose a next followup date, or mark the task closed.");
+  if (close) CLOSED[t.no] = 1;
+  else if (due !== t.ok) MOVES[t.no] = due; else delete MOVES[t.no];
+  saveClosed(); saveMoves(); closeForm(); applyMoves(); fillFilters(); render();
+}
+$("tfClose").onclick = () => applyExisting(true);
+$("tfCancel").onclick = closeForm;
+$("tf").addEventListener("click", e => { if (e.target === $("tf")) closeForm(); });
+$("tfSave").onclick = () => {
+  if (EXIST){ applyExisting($("tfSt").value === "Closed"); return; }
+  const req = $("tfReq").value, due = $("tfDue").value, sum = $("tfSum").value.replace(/\s+/g, " ").trim();
+  if (!sum) return tfBad("Please enter the task summary.");
+  if (!req || !due) return tfBad("Please choose the request date and the next followup date.");
+  const match = (f, v) => { v = v.replace(/\s+/g, " ").trim(); return ALL.map(f).find(z => z && z.toLowerCase() === v.toLowerCase()) || v; };
+  const rec = {req, pf: match(t => t.type, $("tfPf").value), asm: match(t => t.who, $("tfAsm").value), sum, due};
+  const base = req + "|" + sum.toLowerCase(); let id = base, n = 1;
+  while (LOCAL.some(l => l.id === id && l.id !== EDIT) || ALL.some(t => !t.local && t.no === id)) id = base + "#" + (++n);
+  rec.id = id;
+  const at = EDIT ? LOCAL.findIndex(l => l.id === EDIT) : -1;
+  if (at >= 0) LOCAL[at] = rec; else LOCAL.push(rec);
+  saveLocal(); closeForm(); rebuildLocal();
+};
+$("tfDel").onclick = () => {
+  if (!EDIT) return;
+  if (!delArm){ $("tfDel").textContent = "Click again to delete"; delArm = setTimeout(() => { delArm = 0; $("tfDel").textContent = "Delete"; }, 3500); return; }
+  clearTimeout(delArm); delArm = 0;
+  LOCAL = LOCAL.filter(l => l.id !== EDIT); saveLocal(); closeForm(); rebuildLocal();
 };
 
 /* ---- switching between Tickets and Tasks ---- */
@@ -727,9 +889,10 @@ function setMode(m, first){
   CUR = m;
   const st = STATE[m];
   ({ALL, WB, META, FILE, MOVES, SEL, loadedAt} = st);
+  if (m === "tasks") ALL = ALL.filter(t => !t.local).concat(LOCAL.map(localObj));
   F.q = st.q; $("fQ").value = F.q; $("fQ").placeholder = MODES[m].hint;
   FILTERS = MODES[m].filters; COLS = MODES[m].cols;
-  PANEL = null; PSORT = {k: "key", dir: 1}; $("panel").hidden = true; showMsg("");
+  closeForm(); PANEL = null; PSORT = {k: "key", dir: 1}; $("panel").hidden = true; showMsg("");
   document.querySelectorAll("#modeSeg button").forEach(b => b.classList.toggle("on", b.dataset.m === m));
   try { localStorage.setItem("mhs_mode", m); } catch (e){}
   buildFilterUI(); fillFilters(); render();
