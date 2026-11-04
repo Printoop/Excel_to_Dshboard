@@ -86,8 +86,9 @@ div.card{opacity:.85}
 .p1 a,.p1 b{color:var(--accent);font-weight:600;text-decoration:none}
 .p1 span{color:var(--muted);font-size:12.5px;text-align:right}
 .ps{color:var(--sum);font-size:12.5px;margin-top:2px}
-.sub{color:var(--muted);font-size:13px;margin-top:2px;letter-spacing:.4px}
-header .meta{margin-top:6px}
+.sub{color:var(--muted);font-size:13px;letter-spacing:.4px}
+.corner{position:absolute;right:22px;top:14px;display:flex;flex-direction:column;align-items:flex-end;line-height:1.3}
+@media (max-width:980px){.corner{position:static;flex-direction:row;justify-content:center;gap:12px;margin-top:4px}.seg{position:static;margin:0 0 6px}}
 .theme{position:absolute;right:22px;top:18px;display:flex;gap:7px;align-items:center;font-size:15px;color:var(--muted);cursor:pointer;user-select:none}
 .theme input{position:absolute;opacity:0;width:0;height:0}
 .theme i{width:38px;height:20px;border-radius:10px;background:var(--line);position:relative;transition:background .2s}
@@ -106,7 +107,7 @@ header .meta{margin-top:6px}
 .pt a{color:var(--accent);font-weight:600;text-decoration:none}
 .ghost{box-shadow:0 8px 20px rgba(0,0,0,.5)}
 .touchhint{display:none;margin:0 22px 8px;color:var(--muted);font-size:12.5px}
-.seg{display:inline-flex;margin-top:8px;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--panel)}
+.seg{display:inline-flex;position:absolute;left:22px;top:18px;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--panel)}
 .seg button{border:0;border-radius:0;background:transparent;padding:6px 20px;color:var(--muted)}
 .seg button.on{background:var(--accent);color:var(--onaccent);font-weight:600}
 .pt td.tx{white-space:normal;min-width:180px;max-width:320px}
@@ -141,6 +142,7 @@ header .meta{margin-top:6px}
   #panel{width:100%}
   .touchhint{margin-left:12px;margin-right:12px}
   .theme{position:static;justify-content:center;margin-bottom:8px}
+  .seg{position:static;margin:0 0 6px}
 }
 @media (hover:none) and (pointer:coarse){
   .card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
@@ -151,11 +153,9 @@ header .meta{margin-top:6px}
 </head>
 <body>
 <header>
-  <label class="theme" title="Switch dark / light theme"><span aria-hidden="true">&#9790;</span><input type="checkbox" id="theme" role="switch" aria-label="Light theme"><i></i><span aria-hidden="true">&#9728;</span></label>
-  <h1>MH South Team Work planner</h1>
-  <div class="sub">by Printo</div>
   <div class="seg" id="modeSeg"><button type="button" data-m="tickets" class="on">Tickets</button><button type="button" data-m="tasks">Tasks</button></div>
-  <div class="meta" id="updated">Loading data…</div>
+  <h1>MH South Team Work planner</h1>
+  <div class="corner"><span class="sub">by Printo</span><span class="meta" id="updated">Loading data…</span></div>
 </header>
 
 <div class="bar">
@@ -566,10 +566,7 @@ $("file").onchange = async e => {
 };
 
 /* ---- theme ---- */
-function setTheme(t){ document.documentElement.dataset.theme = t; $("theme").checked = t === "light"; try { localStorage.setItem("mhs_theme", t); } catch (e){} }
-let savedTheme = "dark"; try { savedTheme = localStorage.getItem("mhs_theme") || "dark"; } catch (e){}
-setTheme(savedTheme);
-$("theme").onchange = e => setTheme(e.target.checked ? "light" : "dark");
+document.documentElement.dataset.theme = "dark";
 
 /* ---- moved dates (kept in this browser until reset, or until the Excel in GitHub has the same date) ---- */
 let WB = null, META = null, FILE = "work_planner.xlsx", MOVES = {}, dragNo = null;
