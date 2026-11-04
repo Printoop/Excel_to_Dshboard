@@ -432,6 +432,9 @@ function textOk(t){
 function matches(t, skip){
   return !t.cl && textOk(t) && FILTERS.every(f => f.k === skip || !SEL[f.k].size || SEL[f.k].has(f.get(t)));
 }
+function saveFilters(){
+  try { const o = {q: F.q}; FILTERS.forEach(f => o[f.k] = [...SEL[f.k]]); localStorage.setItem("mhs_filters_" + CUR, JSON.stringify(o)); } catch (e){}
+}
 function fillFilters(){
   const avail = () => {
     const o = {};
@@ -439,12 +442,13 @@ function fillFilters(){
     return o;
   };
   let a = avail();
-  for (let i = 0; i < 6; i++){
+  for (let i = 0; STATE[CUR].loaded && i < 6; i++){
     let ch = false;
     FILTERS.forEach(f => [...SEL[f.k]].forEach(v => { if (!a[f.k][v]){ SEL[f.k].delete(v); ch = true; } }));
     if (!ch) break;
     a = avail();
   }
+  if (STATE[CUR].loaded) saveFilters();
   FILTERS.forEach(f => {
     const box = document.querySelector('.ms[data-k="' + f.k + '"]'), list = box.querySelector(".mslist"), st = list.scrollTop, s = SEL[f.k];
     box.querySelector(".msb").textContent = (s.size === 0 ? "All " + f.label : s.size === 1 ? f.label + ": " + [...s][0] : f.label + ": " + s.size + " selected") + " \u25be";
@@ -550,7 +554,7 @@ function render(){
 $("prev").onclick = () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); render(); };
 $("next").onclick = () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); render(); };
 $("today").onclick = () => { view = new Date(); view.setDate(1); render(); };
-$("fQ").oninput = e => { F.q = e.target.value; fillFilters(); render(); };
+$("fQ").oninput = e => { F.q = e.target.value; fillFilters(); saveFilters(); render(); };
 $("reload").onclick = load;
 $("wrap").addEventListener("click", e => {
   const a = e.target.closest(".add"); if (a){ openForm(null, a.dataset.add); return; }
@@ -601,7 +605,7 @@ function buildFilterUI(){
   });
 }
 function closeLists(){ document.querySelectorAll(".mslist").forEach(l => l.hidden = true); }
-function onFilter(){ fillFilters(); render(); }
+function onFilter(){ fillFilters(); saveFilters(); render(); }
 $("filters").addEventListener("click", e => {
   e.stopPropagation();
   const b = e.target.closest(".msb");
@@ -879,6 +883,11 @@ function newState(m){
   const st = {ALL: [], WB: null, META: null, FILE: m + ".xlsx", MOVES: {}, SEL: {}, loadedAt: null, q: "", loaded: false};
   MODES[m].filters.forEach(f => st.SEL[f.k] = new Set());
   try { st.MOVES = JSON.parse(localStorage.getItem(MODES[m].store) || "{}"); } catch (e){}
+  try {
+    const sv = JSON.parse(localStorage.getItem("mhs_filters_" + m) || "{}");
+    MODES[m].filters.forEach(f => (sv[f.k] || []).forEach(v => st.SEL[f.k].add(v)));
+    st.q = sv.q || "";
+  } catch (e){}
   return st;
 }
 function setMode(m, first){
