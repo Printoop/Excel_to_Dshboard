@@ -349,10 +349,12 @@ const MODES = {
       {k: "type", label: "TYPE", get: t => t.type}, {k: "status", label: "STATUS", get: t => t.status}, {k: "city", label: "CITY", get: t => t.city}
     ],
     cols: [
-      {k: "no", h: "Ticket number", v: t => t.no, cell: t => t.link ? '<a href="' + esc(t.link) + '" target="_blank" rel="noopener">' + esc(t.no) + "</a>" : esc(t.no)},
+      {k: "no", h: "Ticket#", v: t => t.no, cell: t => t.link ? '<a href="' + esc(t.link) + '" target="_blank" rel="noopener">' + esc(t.no) + "</a>" : esc(t.no)},
       {k: "acc", h: "Account Name", v: t => t.account, cell: t => esc(t.account)},
       {k: "city", h: "City", v: t => t.city, cell: t => esc(t.city)},
       {k: "prod", h: "Model", v: t => t.product, cell: t => esc(t.product)},
+      {k: "type", h: "Ticket Type", v: t => t.type, cell: t => esc(t.type)},
+      {k: "who", h: "Assigned To", v: t => t.who, cell: t => esc(t.who)},
       {k: "key", h: "Due date", v: t => t.key, cell: dueCell}
     ]
   },
@@ -542,8 +544,8 @@ function render(){
   $("grid").innerHTML = a.html; $("grid2").innerHTML = b.html;
   const pdList = list.filter(t => t.key < todayKey).sort((p, q) => p.key.localeCompare(q.key));
   const movedList = ALL.filter(t => t.moved && !t.cl), newList = ALL.filter(t => t.local), closedList = ALL.filter(t => t.cl);
-  $("pdWrap").hidden = !pdList.length; $("pdCount").textContent = "(" + pdList.length + ")";
-  $("pdStrip").innerHTML = pdList.map(miniHtml).join("");
+  $("pdWrap").hidden = CUR !== "tasks" || !pdList.length; $("pdCount").textContent = "(" + pdList.length + ")";
+  $("pdStrip").innerHTML = CUR === "tasks" ? pdList.map(miniHtml).join("") : "";
   $("reset").disabled = !movedList.length;
   LISTS = {month: a.all, next: b.all, all: list, pd: pdList, moved: movedList, new: newList, closed: closedList};
   const L = (p, n) => '<button type="button" class="lnk" data-p="' + p + '">' + n + "</button>";
