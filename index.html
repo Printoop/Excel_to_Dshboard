@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MH South Team Work planner</title>
+<title>Ticket and Outstanding planner</title>
 <meta name="color-scheme" content="dark">
 <style>
 :root{
@@ -149,12 +149,43 @@ div.card{opacity:.85}
   .touchhint{display:block}
   .add{width:30px;height:30px;font-size:17px}
 }
+
+/* ===== Outstanding view ===== */
+body.out .bar,body.out #stats,body.out #msg,body.out .touchhint,body.out #wrap,body.out #updated{display:none!important}
+#outView{display:none;padding:0 22px 28px}body.out #outView{display:block}
+.obar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 0}.obar input[type=search]{flex:1;min-width:200px}
+.ometa{color:var(--muted);font-size:12.5px;margin-bottom:8px}
+#oMsg{margin:0 0 10px;padding:10px 12px;border-radius:8px;background:var(--msgbg);border:1px solid var(--msgline);color:var(--msgtext)}#oMsg[hidden]{display:none}
+.ogrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px;align-items:start}
+.otile{grid-column:span 6;background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:0}
+.otile.oK,.otile.min{grid-column:span 2}.otile.oF{grid-column:span 12}.otile.oF.min{grid-column:span 2}
+.otile.odrag{opacity:.45;outline:2px dashed var(--accent)}
+.otile.dropb{box-shadow:-5px 0 0 var(--accent)}.otile.dropa{box-shadow:5px 0 0 var(--accent)}.otile.dropbv{box-shadow:0 -5px 0 var(--accent)}.otile.dropav{box-shadow:0 5px 0 var(--accent)}
+.oth{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.oth .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ogrip{cursor:grab;touch-action:none;user-select:none;font-size:16px;padding:0 4px;color:var(--muted)}
+.omin{padding:0 9px;line-height:22px;font-size:15px}
+.oval{display:none;color:var(--text);text-transform:none;letter-spacing:0}.otile.min .oval{display:inline}
+.otile.min .otb{display:none}.otile.min .oth{padding:8px 10px}
+.otb{padding:0 12px 12px}.oKv{font-size:24px;font-weight:700}.oKl{color:var(--muted);font-size:12px;min-height:18px}
+.ob{display:flex;align-items:center;gap:8px;margin:4px 0;padding:2px 4px;border-radius:6px;cursor:pointer}.ob:hover,.ob.sel{background:var(--panel2)}.ob.sel{outline:1px solid var(--accent)}
+.obn{width:96px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.obt{flex:1;height:16px;background:var(--panel2);border-radius:4px;display:flex;overflow:hidden}
+.obt i{display:block;height:100%}.obv{width:82px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
+.oleg{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--muted);margin-top:8px}.oleg b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+ul.oins{margin:0;padding-left:18px}ul.oins li{margin:6px 0}
+.otw{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.opt{border-collapse:collapse;width:100%;font-size:13px}.opt th,.opt td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+.opt th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-size:12px;cursor:pointer}.opt .r{text-align:right;font-variant-numeric:tabular-nums}
+.opt td.w{white-space:normal;min-width:150px;max-width:300px}.opt tr:hover td{background:var(--panel2)}
+.olink{color:var(--accent);cursor:pointer;margin-left:6px;text-decoration:none;font-weight:700}
+.opill{padding:2px 8px;border-radius:99px;color:#0b1020;font-size:11px;font-weight:700}
+@media (max-width:900px){.otile{grid-column:span 12}.otile.oK,.otile.min,.otile.oF.min{grid-column:span 6}}
 </style>
 </head>
 <body>
 <header>
-  <div class="seg" id="modeSeg"><button type="button" data-m="tickets" class="on">Tickets</button><button type="button" data-m="tasks">Tasks</button></div>
-  <h1>MH South Team Work planner</h1>
+  <div class="seg" id="modeSeg"><button type="button" data-m="outstanding">Outstanding</button><button type="button" data-m="collection">Collection</button><button type="button" data-m="tickets">Tickets</button><button type="button" data-m="tasks">Tasks</button></div>
+  <h1>Ticket and Outstanding planner</h1>
   <div class="corner"><span class="sub">by Printo</span><span class="meta" id="updated">Loading data…</span></div>
 </header>
 
@@ -176,6 +207,15 @@ div.card{opacity:.85}
 <div id="msg" role="status"></div>
 <div class="touchhint">Tip: hold a tile for 1 second, then slide it onto a date and release.</div>
 
+<div id="outView">
+  <div class="obar"><span id="oFilters" style="display:contents"></span>
+    <input id="oQ" type="search" placeholder="Search party, city, invoice, product, remark…">
+    <button id="oReset" type="button">Reset filters</button><button id="oLay" type="button">Reset layout</button>
+    <button id="oCsv" type="button">Export CSV</button><button id="oReload" type="button">Refresh data</button>
+    <label class="meta" style="cursor:pointer">Open file…<input id="oFile" type="file" accept=".xlsx,.xls" hidden></label></div>
+  <div class="ometa" id="oMeta">Loading data…</div><div id="oMsg" role="status" hidden></div>
+  <div class="ogrid" id="oGrid"></div>
+</div>
 <div class="wrap" id="wrap">
   <div id="pdWrap" hidden><div class="sec">Past due <small id="pdCount"></small><small>drag onto today or a later date to re-assign</small></div><div class="pdStrip" id="pdStrip"></div></div>
   <div class="dow"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div>
@@ -212,7 +252,9 @@ const CONFIG = {
   // Used only if a row has no Ticket Link. {id} is replaced with the Id column. Leave empty to disable.
   LINK_TEMPLATE: "",
   // Page re-reads the file automatically every N minutes (0 = off)
-  REFRESH_MIN: 10
+  REFRESH_MIN: 10,
+  // Outstanding Excel (sheet "Outstanding" is read). Commit the new file with the SAME name each day.
+  OUTSTANDING_URL: "https://raw.githubusercontent.com/Printoop/Excel_to_Dshboard/main/05_Refresh_15Day_Outstanding_And_Collection_Jinson_Weekly.xlsx"
 };
 /* ============================================== */
 
@@ -880,7 +922,258 @@ $("tfDel").onclick = () => {
   LOCAL = LOCAL.filter(l => l.id !== EDIT); saveLocal(); closeForm(); rebuildLocal();
 };
 
-/* ---- switching between Tickets and Tasks ---- */
+/* ===== Outstanding / Collection views: own filters, draggable + minimizable tiles, per-device memory ===== */
+const OB = ["<15","15-30","30-60","60-90","90-180",">180"], OC = ["#4ade80","#a3e635","#facc15","#fb923c","#f87171","#b91c1c"];
+const CB = OB.concat(["n/a"]), CCOL = OC.concat(["#64748b"]);
+const ofm = n => n >= 1e7 ? "\u20b9" + (n/1e7).toFixed(2) + " Cr" : n >= 1e5 ? "\u20b9" + (n/1e5).toFixed(2) + " L" : "\u20b9" + Math.round(n).toLocaleString("en-IN");
+const ofl = n => "\u20b9" + Math.round(n).toLocaleString("en-IN");
+const obk = d => d < 15 ? 0 : d < 30 ? 1 : d < 60 ? 2 : d < 90 ? 3 : d < 180 ? 4 : 5;
+const osum = a => a.reduce((s, r) => s + r.pend, 0), opc = (a, b) => b ? (a / b * 100).toFixed(0) + "%" : "0%";
+const ageSort = L => (x, y) => L.indexOf(x) - L.indexOf(y);
+const mLabel = k => { const p = k.split("-"); return MN[p[1] - 1] + " " + p[0].slice(2); };
+const FA = {k:"asm",label:"ASM",get:r=>r.asm}, FC = {k:"city",label:"CITY",get:r=>r.city};
+const VIEWS = {
+  out: {noun: "invoices", ph: "Search party, city, invoice, product, remark\u2026", csv: "outstanding_view.csv", sort: {k:"pend",d:-1}, lab: OB, colr: OC, render: renderOut,
+    fd: [FA, {k:"age",label:"AGEING",get:r=>OB[r.b],sort:ageSort(OB)}, {k:"pstat",label:"RECEIPTS",get:r=>r.pstat}, {k:"cat",label:"CATEGORY",get:r=>r.cat}, {k:"ho",label:"HO F/U",get:r=>r.ho}, FC],
+    tiles: [["kT","Total pending","oK"],["kN","Invoices","oK"],["k90","Over 90 days","oK"],["k180","Over 180 days","oK"],["k30","Under 30 days","oK"],["kH","HO follow-up","oK"],["age","Ageing (click a bar to filter)",""],["pay","Receipts against open invoices (click to filter)",""],["ins","Key insights",""],["asm","By ASM (click to filter)",""],["top","Top 10 parties (click to search)",""],["tbl","Invoices","oF"]],
+    search: r => [r.party, r.city, r.ref, r.prod, r.rem, r.asm, r.cat],
+    cols: [{k:"date",h:"Date",v:r=>r.date,cell:r=>fmtKey(r.date)},{k:"ref",h:"Invoice",cell:r=>esc(r.ref)+(r.rc ? lnk("col", r.ref) : "")},{k:"party",h:"Party"},{k:"city",h:"City"},{k:"asm",h:"ASM"},{k:"prod",h:"Product",w:1},{k:"pend",h:"Pending",c:"r",cell:r=>ofl(r.pend)},{k:"paid",h:"Received",c:"r",cell:r=>r.paid ? ofl(r.paid) : "-"},{k:"rc",h:"Receipts",c:"r",cell:r=>r.rc || "-"},{k:"last",h:"Last paid",v:r=>r.last||"",cell:r=>r.last ? fmtKey(r.last) : "-"},{k:"days",h:"Days",c:"r"},{k:"b",h:"Ageing",v:r=>OB[r.b],cell:r=>pill(r,OB,OC)},{k:"ho",h:"HO F/U"},{k:"rem",h:"Remark",w:1}]},
+  col: {noun: "receipts", ph: "Search customer, city, invoice, product\u2026", csv: "collection_view.csv", sort: {k:"date",d:-1}, lab: CB, colr: CCOL, render: renderCol,
+    fd: [FA, {k:"owes",label:"INVOICE",get:r=>r.status}, {k:"mon",label:"MONTH",get:r=>r.mon,sort:(x,y)=>y.localeCompare(x)}, {k:"fy",label:"FY",get:r=>r.fy,sort:(x,y)=>y.localeCompare(x)}, {k:"age",label:"COLLECTED IN",get:r=>CB[r.b],sort:ageSort(CB)}, FC],
+    tiles: [["kT","Total collected","oK"],["kN","Receipts","oK"],["kM","This month","oK"],["kW","Last 7 days","oK"],["kA","Avg days to pay","oK"],["kL","Paid after 90 d","oK"],["mon","Monthly collection (click a bar to filter)",""],["age","Days to collect (click a bar to filter)",""],["bal","Invoice status of receipts (click to filter)",""],["ins","Key insights",""],["asm","By ASM (click to filter)",""],["top","Top 10 customers (click to search)",""],["tbl","Receipts","oF"]],
+    search: r => [r.party, r.city, r.ref, r.prod, r.asm],
+    cols: [{k:"date",h:"Paid on",v:r=>r.date,cell:r=>fmtKey(r.date)},{k:"ref",h:"Invoice",cell:r=>esc(r.ref)+(r.owes ? lnk("out", r.ref) : "")},{k:"party",h:"Customer"},{k:"city",h:"City"},{k:"asm",h:"ASM"},{k:"prod",h:"Product",w:1},{k:"pend",h:"Collected",c:"r",cell:r=>ofl(r.pend)},{k:"owes",h:"Invoice pending",c:"r",cell:r=>r.owes ? ofl(r.owes) : "-"},{k:"inv",h:"Invoice amt",c:"r",cell:r=>ofl(r.inv)},{k:"days",h:"Days to collect",c:"r",v:r=>r.days ?? "",cell:r=>r.days ?? "-"},{k:"b",h:"Speed",v:r=>CB[r.b],cell:r=>pill(r,CB,CCOL)},{k:"fy",h:"FY"}]}
+};
+let VK = "out", OBOUND = false, OLOADED = 0, OFILE = "", OLOCAL = false, DATA = {out: [], col: []}, OERR = {}, OV = [];
+const rk = s => String(s || "").toUpperCase().replace(/\s+/g, "");
+const lnk = (v, ref) => ref ? ' <a class="olink" data-x="' + v + '" data-q="' + esc(ref) + '" title="Open this invoice in ' + (v === "col" ? "Collection" : "Outstanding") + '">\u2197</a>' : "";
+const VS = {}, cv = () => VIEWS[VK], pill = (r, L, C) => '<span class="opill" style="background:' + C[r.b] + '">' + L[r.b] + "</span>";
+function vs(k){
+  if (VS[k]) return VS[k];
+  const s = VS[k] = {sel: {}, q: "", sort: Object.assign({}, VIEWS[k].sort), lay: {order: [], min: []}};
+  VIEWS[k].fd.forEach(f => s.sel[f.k] = new Set());
+  try { const o = JSON.parse(localStorage.getItem("mhs_filters_" + k) || "{}"); VIEWS[k].fd.forEach(f => (o[f.k] || []).forEach(v => s.sel[f.k].add(v))); s.q = o.q || ""; } catch (e){}
+  try { const l = JSON.parse(localStorage.getItem("mhs_" + k + "_layout") || "{}"); s.lay = {order: l.order || [], min: l.min || []}; } catch (e){}
+  return s;
+}
+const S = () => vs(VK);
+function oSave(){ try { const s = S(), o = {q: s.q}; cv().fd.forEach(f => o[f.k] = [...s.sel[f.k]]); localStorage.setItem("mhs_filters_" + VK, JSON.stringify(o)); localStorage.setItem("mhs_" + VK + "_layout", JSON.stringify(s.lay)); } catch (e){} }
+function oErr(t){ const e = $("oMsg"); e.textContent = t || ""; e.hidden = !t; }
+function oSet(id, html, val){ const t = document.querySelector('.otile[data-id="' + id + '"]'); if (!t) return; t.querySelector(".otb").innerHTML = html; if (val != null) t.querySelector(".oval").textContent = val; }
+const oKpi = (id, v, sub) => oSet(id, '<div class="oKv">' + v + '</div><div class="oKl">' + esc(sub || "") + "</div>", v);
+const num = v => { if (typeof v === "number") return v; const n = Number(String(v ?? "").replace(/[^0-9.\-]/g, "")); return String(v ?? "").trim() === "" ? NaN : n; };
+
+/* ---- reading the Excel ---- */
+function oHead(ws, need){
+  const rng = XLSX.utils.decode_range(ws["!ref"]), cell = (r, c) => c == null || c < 0 ? undefined : ws[XLSX.utils.encode_cell({r, c})];
+  const txt = (r, c) => { const x = cell(r, c); return x && x.v != null ? String(x.w ?? x.v).replace(/\s+/g, " ").trim() : ""; };
+  for (let r = rng.s.r; r <= Math.min(rng.e.r, rng.s.r + 20); r++){
+    const f = {}; for (let c = rng.s.c; c <= Math.min(rng.e.c, 60); c++){ const x = cell(r, c); if (x && x.v != null) f[String(x.v).replace(/\s+/g, " ").trim().toLowerCase()] = c; }
+    if (need.every(n => f[n] != null)){ const ks = Object.keys(f); return {hr: r, rng, cell, txt, cols: f, col: re => { const k = ks.find(k => re.test(k)); return k == null ? undefined : f[k]; }}; }
+  }
+  return null;
+}
+const oBad = s => /^#/.test(s) ? "" : s;
+function oParseOut(ws){
+  const H = oHead(ws, ["date", "pending amount"]); if (!H) throw Error("Could not find the DATE and Pending Amount columns in the Outstanding sheet.");
+  const {hr, rng, cell, txt, col} = H, C = {date: H.cols["date"], ref: col(/^ref\. no/), cat: col(/^category$/), party: col(/^party/), city: col(/^city$/), prod: col(/^product/), pend: H.cols["pending amount"], asm: col(/^asm$/), ho: col(/^ho followup/), rem: col(/^re+a?mark/)};
+  const now = new Date(), t0 = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()), out = [];
+  for (let r = hr + 1; r <= rng.e.r; r++){
+    const dc = cell(r, C.date), dt = dc && (parseDate(dc.v) || parseDate(dc.w)), ref = txt(r, C.ref), pc = cell(r, C.pend);
+    if (!dt || !ref || !pc || typeof pc.v !== "number") continue;
+    const days = Math.max(0, Math.round((t0 - Date.UTC(dt.y, dt.m, dt.d)) / 864e5));
+    out.push({date: keyOf(dt.y, dt.m, dt.d), ref, cat: oBad(txt(r, C.cat)) || "-", party: oBad(txt(r, C.party)), city: oBad(txt(r, C.city)).toUpperCase(), prod: oBad(txt(r, C.prod)), pend: pc.v, asm: oBad(txt(r, C.asm)).toUpperCase() || "-", ho: oBad(txt(r, C.ho)).toUpperCase(), rem: oBad(txt(r, C.rem)), days, b: obk(days)});
+  }
+  if (!out.length) throw Error("No invoice rows found in the Outstanding sheet.");
+  return out;
+}
+function oParseCol(ws, out, seen){
+  const H = oHead(ws, ["payment credited on", "collected amount"]); if (!H) return;
+  const {hr, rng, cell, txt, col} = H, C = {date: H.cols["payment credited on"], ref: col(/^invoice number/), amt: H.cols["collected amount"], asm: col(/^asm$/), party: col(/^customer/), city: col(/^city$/), prod: col(/^product/), inv: col(/^invoice amount/), idate: col(/^inv date/)};
+  for (let r = hr + 1; r <= rng.e.r; r++){
+    const dc = cell(r, C.date), dt = dc && (parseDate(dc.v) || parseDate(dc.w)), ref = txt(r, C.ref), ac = cell(r, C.amt), amt = ac ? num(ac.v) : NaN;
+    if (!dt || !ref || !isFinite(amt) || !amt) continue;
+    const key = keyOf(dt.y, dt.m, dt.d), id = key + "|" + ref + "|" + amt; if (seen.has(id)) continue; seen.add(id);
+    const ic = cell(r, C.idate), id0 = ic && (parseDate(ic.v) || parseDate(ic.w)), d = id0 ? Math.round((Date.UTC(dt.y, dt.m, dt.d) - Date.UTC(id0.y, id0.m, id0.d)) / 864e5) : NaN;
+    const days = isFinite(d) && d >= 0 && d < 3000 ? d : null, ivc = cell(r, C.inv);
+    out.push({date: key, ref, party: oBad(txt(r, C.party)), city: oBad(txt(r, C.city)).toUpperCase(), prod: oBad(txt(r, C.prod)), pend: amt, inv: ivc && typeof ivc.v === "number" ? ivc.v : 0, asm: oBad(txt(r, C.asm)).toUpperCase() || "-",
+      days, b: days == null ? 6 : obk(days), mon: key.slice(0, 7), fy: dt.m >= 3 ? dt.y + "-" + (dt.y + 1) : (dt.y - 1) + "-" + dt.y});
+  }
+}
+function oLink(){
+  const byRef = {}, op = {};
+  DATA.col.forEach(r => { const k = rk(r.ref), a = byRef[k] = byRef[k] || {s: 0, n: 0, l: ""}; a.s += r.pend; a.n++; if (r.date > a.l) a.l = r.date; });
+  DATA.out.forEach(r => { const k = rk(r.ref); op[k] = (op[k] || 0) + r.pend; });
+  DATA.out.forEach(r => { const a = byRef[rk(r.ref)]; r.paid = a ? a.s : 0; r.rc = a ? a.n : 0; r.last = a ? a.l : null; r.pstat = a ? "Part-paid" : "No receipt yet"; });
+  DATA.col.forEach(r => { r.owes = op[rk(r.ref)] || 0; r.status = r.owes > 0 ? "Still open" : "Settled"; });
+}
+function oIngest(buf, name, local){
+  const u8 = new Uint8Array(buf), names = XLSX.read(u8, {type: "array", bookSheets: true}).SheetNames;
+  const on = names.find(n => /outstanding/i.test(n)), cn = names.filter(n => /^collection/i.test(n)), want = (on ? [on] : []).concat(cn);
+  let wb = XLSX.read(u8, {type: "array", cellNF: true, sheets: want});
+  if (want.some(n => !wb.Sheets[n])) wb = XLSX.read(u8, {type: "array", cellNF: true});
+  OERR = {};
+  try { if (!on) throw Error("Sheet \u201cOutstanding\u201d was not found in this file."); DATA.out = oParseOut(wb.Sheets[on]); } catch (e){ DATA.out = []; OERR.out = e.message; }
+  try { if (!cn.length) throw Error("No sheet named \u201cCollection\u201d was found in this file."); const rows = [], seen = new Set(); cn.forEach(n => oParseCol(wb.Sheets[n], rows, seen)); if (!rows.length) throw Error("No collection rows found."); DATA.col = rows; } catch (e){ DATA.col = []; OERR.col = e.message; }
+  oLink(); OLOADED = Date.now(); OFILE = name; OLOCAL = !!local; oRender();
+}
+async function oLoad(){
+  $("oMeta").textContent = "Loading data\u2026"; oErr("");
+  try {
+    const U = CONFIG.OUTSTANDING_URL, res = await fetch(U + (U.includes("?") ? "&" : "?") + "t=" + Date.now(), {cache: "no-store"});
+    if (!res.ok) throw Error("Could not download the Excel (HTTP " + res.status + "). Check OUTSTANDING_URL in the page settings and that the repo is public.");
+    oIngest(await res.arrayBuffer(), decodeURIComponent(U.split("?")[0].split("/").pop()));
+  } catch (e){ oErr((e && e.message ? e.message : e) + " You can also use \u201cOpen file\u2026\u201d to load the Excel from your computer."); if (!OLOADED) $("oMeta").textContent = "Data not loaded"; }
+}
+
+/* ---- filters + rendering ---- */
+function oMatch(r, skip){
+  const s = S(), q = s.q.trim().toLowerCase();
+  return (!q || cv().search(r).join(" ").toLowerCase().includes(q)) && cv().fd.every(f => f.k === skip || !s.sel[f.k].size || s.sel[f.k].has(f.get(r)));
+}
+function oFill(){
+  const s = S(), rows = DATA[VK];
+  cv().fd.forEach(f => {
+    const all = new Set(rows.map(f.get)); if (rows.length) [...s.sel[f.k]].forEach(v => { if (!all.has(v)) s.sel[f.k].delete(v); });
+    const a = {}; rows.forEach(r => { if (oMatch(r, f.k)){ const v = f.get(r); if (v) a[v] = (a[v] || 0) + 1; } });
+    const sl = s.sel[f.k]; sl.forEach(v => { if (!a[v]) a[v] = 0; });
+    const box = document.querySelector('#oFilters .ms[data-k="' + f.k + '"]'), list = box.querySelector(".mslist"), st = list.scrollTop;
+    box.querySelector(".msb").textContent = (sl.size === 0 ? "All " + f.label : sl.size === 1 ? f.label + ": " + [...sl][0] : f.label + ": " + sl.size + " selected") + " \u25be";
+    list.innerHTML = '<button type="button" class="lnk clr" data-k="' + f.k + '">Clear</button>' + Object.keys(a).sort(f.sort || cmp).map(v => '<label><input type="checkbox" value="' + esc(v) + '"' + (sl.has(v) ? " checked" : "") + "> " + esc(v) + " <small>" + a[v] + "</small></label>").join("");
+    list.scrollTop = st;
+  });
+}
+const orow = (k, v, label, track, val) => '<div class="ob' + (S().sel[k].has(v) ? " sel" : "") + '" data-fk="' + k + '" data-fv="' + esc(v) + '"><span class="obn" title="' + esc(label) + '">' + esc(label) + '</span><span class="obt">' + track + '</span><span class="obv">' + val + "</span></div>";
+function oCommon(){
+  const lab = cv().lab, colr = cv().colr, grp = k => { const m = {}; OV.forEach(r => (m[r[k]] = m[r[k]] || []).push(r)); return Object.entries(m).map(([n, a]) => ({n, a, t: osum(a)})).sort((x, y) => y.t - x.t); };
+  const ag = lab.map((_, i) => osum(OV.filter(r => r.b === i))), mx = Math.max(...ag, 1), nb = OV.filter(r => r.b === 6).length;
+  oSet("age", lab.map((b, i) => i < 6 || nb ? orow("age", b, i < 6 ? b + " days" : "No invoice date", '<i style="width:' + ag[i] / mx * 100 + "%;background:" + colr[i] + '"></i>', ofm(ag[i])) : "").join(""));
+  const A = grp("asm"), am = Math.max(...A.map(x => x.t), 1);
+  oSet("asm", A.map(x => orow("asm", x.n, x.n, '<span style="display:flex;width:' + x.t / am * 100 + '%;height:100%">' + lab.map((_, i) => '<i style="width:' + (x.t ? osum(x.a.filter(r => r.b === i)) / x.t * 100 : 0) + "%;background:" + colr[i] + '"></i>').join("") + "</span>", ofm(x.t))).join("") +
+    '<div class="oleg">' + lab.map((b, i) => '<span><b style="background:' + colr[i] + '"></b>' + b + "</span>").join("") + "</div>");
+  const P = grp("party").slice(0, 10), pm = P[0] ? P[0].t : 1;
+  oSet("top", P.map(x => '<div class="ob" data-q="' + esc(x.n) + '"><span class="obn" style="width:150px" title="' + esc(x.n) + '">' + esc(x.n) + '</span><span class="obt"><i style="width:' + x.t / pm * 100 + '%;background:var(--accent)"></i></span><span class="obv">' + ofm(x.t) + "</span></div>").join(""));
+  return {A, P};
+}
+const oIns = I => oSet("ins", '<ul class="oins">' + (I.map(x => "<li>" + x + "</li>").join("") || "<li>No data for this filter.</li>") + "</ul>");
+function renderOut(){
+  const T = osum(OV), o90 = osum(OV.filter(r => r.b >= 4)), o180 = OV.filter(r => r.b === 5), ho = OV.filter(r => r.ho === "YES");
+  oKpi("kT", ofm(T), ofl(T)); oKpi("kN", OV.length, "of " + DATA.out.length + " invoices"); oKpi("k90", ofm(o90), T ? opc(o90, T) + " of pending" : "");
+  oKpi("k180", ofm(osum(o180)), o180.length + " invoices"); oKpi("k30", ofm(osum(OV.filter(r => r.b < 2))), "fresh, easiest to collect"); oKpi("kH", ho.length, ofm(osum(ho)) + " pending");
+  const {A, P} = oCommon(), I = [], pp = OV.filter(r => r.paid > 0), np = OV.filter(r => !(r.paid > 0)), got = pp.reduce((s, r) => s + r.paid, 0);
+  oSet("pay", [["Part-paid", pp, "#4ade80"], ["No receipt yet", np, "#f87171"]].map(x => orow("pstat", x[0], x[0], '<i style="width:' + (T ? osum(x[1]) / T * 100 : 0) + "%;background:" + x[2] + '"></i>', ofm(osum(x[1])))).join("") + '<div class="oKl" style="margin-top:6px">' + pp.length + " invoices already have receipts (" + ofm(got) + " received); " + np.length + " have none.</div>");
+  if (T){
+    const o = OV.slice().sort((a, b) => b.days - a.days)[0], t3 = P.slice(0, 3).reduce((s, x) => s + x.t, 0), nr = OV.filter(r => r.b >= 3 && !r.rem).length;
+    I.push("<b>" + opc(o90, T) + "</b> of pending (" + ofm(o90) + ") is older than 90 days.");
+    if (A[0]) I.push("<b>" + esc(A[0].n) + "</b> holds the most: " + ofm(A[0].t) + " (" + opc(A[0].t, T) + ").");
+    if (P.length > 2) I.push("Top 3 parties are <b>" + opc(t3, T) + "</b> of the total. Focus there first.");
+    if (o180.length) I.push("<b>" + o180.length + "</b> invoices are over 180 days (" + ofm(osum(o180)) + "). Consider escalation or write-off review.");
+    I.push("Oldest open invoice: <b>" + esc(o.party) + "</b>, " + o.days + " days (" + ofl(o.pend) + ").");
+    if (nr) I.push("<b>" + nr + "</b> invoices over 60 days have no remark yet.");
+    if (np.length) I.push("<b>" + np.length + "</b> invoices (" + ofm(osum(np)) + ") have <b>no receipt at all</b>. Start follow-up there.");
+    if (pp.length) I.push("<b>" + pp.length + "</b> invoices are part-paid: " + ofm(got) + " received, " + ofm(osum(pp)) + " still pending.");
+  }
+  oIns(I);
+}
+function renderCol(){
+  const T = osum(OV), now = new Date(), y = now.getFullYear(), m = now.getMonth(), t0 = Date.UTC(y, m, now.getDate()), mk = (yy, mm) => yy + "-" + pad2(mm + 1);
+  const cur = mk(y, m), prv = m ? mk(y, m - 1) : mk(y - 1, 11), mon = {}; OV.forEach(r => mon[r.mon] = (mon[r.mon] || 0) + r.pend);
+  const w7 = OV.filter(r => { const p = r.date.split("-"), d = (t0 - Date.UTC(+p[0], p[1] - 1, +p[2])) / 864e5; return d >= 0 && d < 7; });
+  const dv = OV.filter(r => r.days != null), ds = dv.map(r => r.days).sort((a, b) => a - b), avg = ds.length ? Math.round(ds.reduce((s, x) => s + x, 0) / ds.length) : 0, med = ds.length ? ds[Math.floor(ds.length / 2)] : 0;
+  const late = osum(dv.filter(r => r.days >= 90)), fast = osum(dv.filter(r => r.days < 30)), dT = osum(dv);
+  oKpi("kT", ofm(T), ofl(T)); oKpi("kN", OV.length, "of " + DATA.col.length + " receipts"); oKpi("kM", ofm(mon[cur] || 0), "last month " + ofm(mon[prv] || 0));
+  oKpi("kW", ofm(osum(w7)), w7.length + " receipts"); oKpi("kA", ds.length ? avg + " d" : "-", ds.length ? "median " + med + " d" : ""); oKpi("kL", ofm(late), opc(late, dT) + " of collected");
+  const ks = Object.keys(mon).sort().slice(-12), mm = Math.max(...ks.map(k => mon[k]), 1);
+  oSet("mon", ks.map(k => orow("mon", k, mLabel(k), '<i style="width:' + mon[k] / mm * 100 + '%;background:var(--accent)"></i>', ofm(mon[k]))).join(""));
+  const ow = OV.filter(r => r.owes > 0), cl = OV.filter(r => !(r.owes > 0)), seen = {}; let owed = 0; ow.forEach(r => { const k = rk(r.ref); if (!seen[k]){ seen[k] = 1; owed += r.owes; } });
+  oSet("bal", [["Still open", ow, "#f87171"], ["Settled", cl, "#4ade80"]].map(x => orow("owes", x[0], x[0], '<i style="width:' + (T ? osum(x[1]) / T * 100 : 0) + "%;background:" + x[2] + '"></i>', ofm(osum(x[1])))).join("") + '<div class="oKl" style="margin-top:6px">' + Object.keys(seen).length + " invoices with receipts still carry " + ofm(owed) + " pending.</div>");
+  const {A, P} = oCommon(), I = [], best = Object.keys(mon).sort((a, b) => mon[b] - mon[a])[0];
+  if (T){
+    I.push("Collected <b>" + ofm(T) + "</b> across <b>" + OV.length + "</b> receipts.");
+    if (best) I.push("Best month: <b>" + mLabel(best) + "</b> with " + ofm(mon[best]) + ".");
+    if (mon[prv]) I.push("This month so far is <b>" + ofm(mon[cur] || 0) + "</b>, " + ((mon[cur] || 0) >= mon[prv] ? "already above" : opc(mon[cur] || 0, mon[prv]) + " of") + " last month (" + ofm(mon[prv]) + ").");
+    if (dT) I.push("<b>" + opc(fast, dT) + "</b> was collected within 30 days of invoice; <b>" + opc(late, dT) + "</b> took 90+ days.");
+    if (owed) I.push("<b>" + opc(osum(ow), T) + "</b> of collections went against invoices that are still open (<b>" + ofm(owed) + "</b> pending on " + Object.keys(seen).length + " invoices).");
+    if (A[0]) I.push("<b>" + esc(A[0].n) + "</b> collected the most: " + ofm(A[0].t) + " (" + opc(A[0].t, T) + ").");
+    if (P.length > 2) I.push("Top 3 customers paid <b>" + opc(P.slice(0, 3).reduce((s, x) => s + x.t, 0), T) + "</b> of the total.");
+  }
+  oIns(I);
+}
+function oRender(){
+  if (!OBOUND) return;
+  oFill(); const s = S(), V = cv(); OV = DATA[VK].filter(r => oMatch(r, null)); oErr(OERR[VK] || "");
+  $("oMeta").textContent = OLOADED ? OFILE + " \u00b7 " + DATA[VK].length + " " + V.noun + " \u00b7 refreshed " + new Date(OLOADED).toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) + (OLOCAL ? " (from local file)" : "") + (VK === "out" ? " \u00b7 ageing counted from today" : "") : "Loading data\u2026";
+  V.render();
+  const k = s.sort.k, g = r => r[k] ?? -1, rows = OV.slice().sort((a, b) => s.sort.d * ((g(a) > g(b)) - (g(a) < g(b))));
+  oSet("tbl", '<div class="oKl">Showing ' + OV.length + " of " + DATA[VK].length + ' ' + V.noun + ' (click a heading to sort)</div><div class="otw"><table class="opt"><thead><tr>' + V.cols.map(c => '<th class="' + (c.c || "") + '" data-s="' + c.k + '">' + c.h + (c.k === k ? (s.sort.d > 0 ? " \u25b2" : " \u25bc") : "") + "</th>").join("") + "</tr></thead><tbody>" +
+    rows.map(r => "<tr>" + V.cols.map(c => "<td" + (c.c || c.w ? ' class="' + (c.c || "") + (c.w ? " w" : "") + '"' : "") + ">" + (c.cell ? c.cell(r) : esc(r[c.k])) + "</td>").join("") + "</tr>").join("") + "</tbody></table></div>");
+}
+function oChange(){ oSave(); oRender(); }
+function oBuild(){
+  const V = cv(), s = S(), ids = V.tiles.map(t => t[0]), ord = s.lay.order.filter(i => ids.includes(i)); ids.forEach(i => { if (!ord.includes(i)) ord.push(i); });
+  $("oFilters").innerHTML = V.fd.map(f => '<div class="ms" data-k="' + f.k + '"><button type="button" class="msb"></button><div class="mslist" hidden></div></div>').join("");
+  $("oQ").value = s.q; $("oQ").placeholder = V.ph;
+  $("oGrid").innerHTML = ord.map(id => { const t = V.tiles.find(x => x[0] === id), mn = s.lay.min.includes(id);
+    return '<section class="otile ' + t[2] + (mn ? " min" : "") + '" data-id="' + id + '"><div class="oth"><span class="ogrip" title="Drag to move">\u283f</span><span class="t">' + t[1] + '</span><span class="oval"></span><button type="button" class="omin" title="Minimize / restore">' + (mn ? "+" : "\u2013") + '</button></div><div class="otb"></div></section>'; }).join("");
+}
+function oBind(){
+  if (OBOUND) return; OBOUND = true; const g = $("oGrid");
+  $("oFilters").addEventListener("click", e => {
+    e.stopPropagation();
+    const b = e.target.closest(".msb"); if (b){ const l = b.nextElementSibling, w = l.hidden; closeLists(); l.hidden = !w; return; }
+    const c = e.target.closest(".clr"); if (c){ S().sel[c.dataset.k].clear(); oChange(); }
+  });
+  $("oFilters").addEventListener("change", e => { const c = e.target, k = c.closest(".ms").dataset.k; c.checked ? S().sel[k].add(c.value) : S().sel[k].delete(c.value); oChange(); });
+  $("oQ").oninput = e => { S().q = e.target.value; oChange(); };
+  $("oReset").onclick = () => { const s = S(); cv().fd.forEach(f => s.sel[f.k].clear()); s.q = ""; $("oQ").value = ""; oChange(); };
+  $("oLay").onclick = () => { S().lay = {order: [], min: []}; oSave(); oBuild(); oRender(); };
+  $("oReload").onclick = oLoad;
+  $("oFile").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { oIngest(await f.arrayBuffer(), f.name, true); } catch (x){ oErr(x.message); } e.target.value = ""; };
+  $("oCsv").onclick = () => {
+    const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"', cl = cv().cols;
+    const t = [cl.map(c => c.h).join(",")].concat(OV.map(r => cl.map(c => q(c.v ? c.v(r) : r[c.k])).join(","))).join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + t], {type: "text/csv"})); a.download = cv().csv; a.click();
+  };
+  g.addEventListener("click", e => {
+    const lk = e.target.closest(".olink"); if (lk){ vs(lk.dataset.x).q = lk.dataset.q; showView(lk.dataset.x); oSave(); scrollTo(0, 0); return; }
+    const s = S(), mn = e.target.closest(".omin");
+    if (mn){ const t = mn.closest(".otile"), id = t.dataset.id, on = t.classList.toggle("min"); mn.textContent = on ? "+" : "\u2013"; s.lay.min = s.lay.min.filter(x => x !== id); if (on) s.lay.min.push(id); oSave(); return; }
+    const th = e.target.closest("th[data-s]"); if (th){ const k = th.dataset.s; s.sort = {k, d: s.sort.k === k ? -s.sort.d : (["pend", "days", "inv", "date"].includes(k) ? -1 : 1)}; oRender(); return; }
+    const b = e.target.closest(".ob"); if (!b) return;
+    if (b.dataset.fk){ const sl = s.sel[b.dataset.fk], v = b.dataset.fv, had = sl.has(v); sl.clear(); if (!had) sl.add(v); oChange(); }
+    else if (b.dataset.q != null){ s.q = s.q === b.dataset.q ? "" : b.dataset.q; $("oQ").value = s.q; oChange(); }
+  });
+  g.addEventListener("pointerdown", e => {
+    const gr = e.target.closest(".ogrip"); if (!gr) return;
+    const tile = gr.closest(".otile"); e.preventDefault(); gr.setPointerCapture(e.pointerId); tile.classList.add("odrag");
+    let drop = null; const clr = () => document.querySelectorAll(".dropb,.dropa,.dropbv,.dropav").forEach(x => x.classList.remove("dropb", "dropa", "dropbv", "dropav"));
+    const mv = ev => {
+      if (ev.clientY < 80) scrollBy(0, -14); else if (ev.clientY > innerHeight - 80) scrollBy(0, 14);
+      const el = document.elementFromPoint(ev.clientX, ev.clientY), t = el && el.closest(".otile"); clr(); drop = null;
+      if (!t || t === tile || t.parentNode !== g) return;
+      const r = t.getBoundingClientRect(), v = t.classList.contains("oF") && !t.classList.contains("min"), after = v ? ev.clientY > r.top + r.height / 2 : ev.clientX > r.left + r.width / 2;
+      t.classList.add(after ? (v ? "dropav" : "dropa") : (v ? "dropbv" : "dropb")); drop = {t, after};
+    };
+    const up = () => {
+      gr.removeEventListener("pointermove", mv); gr.removeEventListener("pointerup", up); gr.removeEventListener("pointercancel", up);
+      clr(); tile.classList.remove("odrag");
+      if (drop) g.insertBefore(tile, drop.after ? drop.t.nextSibling : drop.t);
+      S().lay.order = [...g.children].map(x => x.dataset.id); oSave();
+    };
+    gr.addEventListener("pointermove", mv); gr.addEventListener("pointerup", up); gr.addEventListener("pointercancel", up);
+  });
+}
+const VM = {out: "outstanding", col: "collection"};
+function showView(k){
+  const on = !!k; document.body.classList.toggle("out", on);
+  document.querySelectorAll("#modeSeg button").forEach(b => b.classList.toggle("on", on ? b.dataset.m === VM[k] : b.dataset.m === CUR));
+  try { localStorage.setItem("mhs_view", on ? k : "cal"); } catch (e){}
+  if (!on) return;
+  closePanel(); closeForm(); oBind(); VK = k; oBuild();
+  if (!OLOADED || (CONFIG.REFRESH_MIN > 0 && Date.now() - OLOADED > CONFIG.REFRESH_MIN * 60000)) oLoad(); else oRender();
+}
+
+/* ---- switching between Tickets, Tasks and Outstanding ---- */
 function newState(m){
   const st = {ALL: [], WB: null, META: null, FILE: m + ".xlsx", MOVES: {}, SEL: {}, loadedAt: null, q: "", loaded: false};
   MODES[m].filters.forEach(f => st.SEL[f.k] = new Set());
@@ -907,11 +1200,19 @@ function setMode(m, first){
   $("updated").textContent = loadedAt ? "Data refreshed " + loadedAt.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "Loading data\u2026";
   if (!st.loaded || (CONFIG.REFRESH_MIN > 0 && Date.now() - loadedAt > CONFIG.REFRESH_MIN * 60000)) load();
 }
-$("modeSeg").addEventListener("click", e => { const b = e.target.closest("button[data-m]"); if (b && b.dataset.m !== CUR) setMode(b.dataset.m); });
+$("modeSeg").addEventListener("click", e => {
+  const b = e.target.closest("button[data-m]"); if (!b) return;
+  if (b.dataset.m === "outstanding"){ showView("out"); return; }
+  if (b.dataset.m === "collection"){ showView("col"); return; }
+  if (b.dataset.m !== CUR) setMode(b.dataset.m);
+  showView(false);
+});
 STATE.tickets = newState("tickets"); STATE.tasks = newState("tasks");
 let startMode = "tickets"; try { const sm = localStorage.getItem("mhs_mode"); if (MODES[sm]) startMode = sm; } catch (e){}
 setMode(startMode, true);
+try { const sv = localStorage.getItem("mhs_view"); if (sv !== "cal") showView(sv === "col" ? "col" : "out"); } catch (e){ showView("out"); }
 if (CONFIG.REFRESH_MIN > 0) setInterval(load, CONFIG.REFRESH_MIN * 60000);
+if (CONFIG.REFRESH_MIN > 0) setInterval(() => { if (document.body.classList.contains("out")) oLoad(); }, CONFIG.REFRESH_MIN * 60000);
 </script>
 </body>
 </html>
