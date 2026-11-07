@@ -154,7 +154,7 @@ div.card{opacity:.85}
 body.out .bar,body.out #stats,body.out #msg,body.out .touchhint,body.out #wrap,body.out #updated{display:none!important}
 #outView{display:none;padding:0 22px 28px}body.out #outView{display:block}
 .obar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 0}.obar input[type=search]{flex:1;min-width:200px}
-.ometa{color:var(--muted);font-size:12.5px;margin-bottom:8px}
+#oUpd{display:none}body.out #oUpd{display:inline}.osrt{opacity:.45;font-size:11px}.obar .ms .mslist{left:0;right:auto}
 #oMsg{margin:0 0 10px;padding:10px 12px;border-radius:8px;background:var(--msgbg);border:1px solid var(--msgline);color:var(--msgtext)}#oMsg[hidden]{display:none}
 .ogrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px;align-items:start}
 .otile{grid-column:span 6;background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:0}
@@ -186,7 +186,7 @@ ul.oins{margin:0;padding-left:18px}ul.oins li{margin:6px 0}
 <header>
   <div class="seg" id="modeSeg"><button type="button" data-m="outstanding">Outstanding</button><button type="button" data-m="collection">Collection</button><button type="button" data-m="tickets">Tickets</button><button type="button" data-m="tasks">Tasks</button></div>
   <h1>Ticket and Outstanding planner</h1>
-  <div class="corner"><span class="sub">by Printo</span><span class="meta" id="updated">Loading data…</span></div>
+  <div class="corner"><span class="sub">by Printo</span><span class="meta" id="updated">Loading data…</span><span class="meta" id="oUpd"></span></div>
 </header>
 
 <div class="bar">
@@ -213,7 +213,7 @@ ul.oins{margin:0;padding-left:18px}ul.oins li{margin:6px 0}
     <button id="oReset" type="button">Reset filters</button><button id="oLay" type="button">Reset layout</button>
     <button id="oCsv" type="button">Export CSV</button><button id="oReload" type="button">Refresh data</button>
     <label class="meta" style="cursor:pointer">Open file…<input id="oFile" type="file" accept=".xlsx,.xls" hidden></label></div>
-  <div class="ometa" id="oMeta">Loading data…</div><div id="oMsg" role="status" hidden></div>
+  <div id="oMsg" role="status" hidden></div>
   <div class="ogrid" id="oGrid"></div>
 </div>
 <div class="wrap" id="wrap">
@@ -937,12 +937,13 @@ const VIEWS = {
     fd: [FA, {k:"age",label:"AGEING",get:r=>OB[r.b],sort:ageSort(OB)}, {k:"pstat",label:"RECEIPTS",get:r=>r.pstat}, {k:"cat",label:"CATEGORY",get:r=>r.cat}, {k:"ho",label:"HO F/U",get:r=>r.ho}, FC],
     tiles: [["kT","Total pending","oK"],["kN","Invoices","oK"],["k90","Over 90 days","oK"],["k180","Over 180 days","oK"],["k30","Under 30 days","oK"],["kH","HO follow-up","oK"],["age","Ageing (click a bar to filter)",""],["pay","Receipts against open invoices (click to filter)",""],["ins","Key insights",""],["asm","By ASM (click to filter)",""],["top","Top 10 parties (click to search)",""],["tbl","Invoices","oF"]],
     search: r => [r.party, r.city, r.ref, r.prod, r.rem, r.asm, r.cat],
-    cols: [{k:"date",h:"Date",v:r=>r.date,cell:r=>fmtKey(r.date)},{k:"ref",h:"Invoice",cell:r=>esc(r.ref)+(r.rc ? lnk("col", r.ref) : "")},{k:"party",h:"Party"},{k:"city",h:"City"},{k:"asm",h:"ASM"},{k:"prod",h:"Product",w:1},{k:"pend",h:"Pending",c:"r",cell:r=>ofl(r.pend)},{k:"paid",h:"Received",c:"r",cell:r=>r.paid ? ofl(r.paid) : "-"},{k:"rc",h:"Receipts",c:"r",cell:r=>r.rc || "-"},{k:"last",h:"Last paid",v:r=>r.last||"",cell:r=>r.last ? fmtKey(r.last) : "-"},{k:"days",h:"Days",c:"r"},{k:"b",h:"Ageing",v:r=>OB[r.b],cell:r=>pill(r,OB,OC)},{k:"ho",h:"HO F/U"},{k:"rem",h:"Remark",w:1}]},
+    cols: [{k:"date",h:"Date",v:r=>r.date,cell:r=>fmtKey(r.date)},{k:"ref",h:"Invoice",cell:r=>esc(r.ref)+(r.rc ? lnk("col", r.ref) : "")},{k:"party",h:"Party"},{k:"city",h:"City"},{k:"prod",h:"Product",w:1},{k:"inv",h:"Invoice Amount",c:"r",cell:r=>ofl(r.inv)},{k:"pend",h:"Pending",c:"r",cell:r=>ofl(r.pend)},{k:"b",h:"Ageing",v:r=>OB[r.b],cell:r=>pill(r,OB,OC)},{k:"rem",h:"Reamrk for Outstanding",w:1},
+      {k:"asm",h:"ASM",hide:1},{k:"paid",h:"Received",c:"r",hide:1,cell:r=>r.paid ? ofl(r.paid) : "-"},{k:"rc",h:"Receipts",c:"r",hide:1,cell:r=>r.rc || "-"},{k:"last",h:"Last paid",hide:1,v:r=>r.last||"",cell:r=>r.last ? fmtKey(r.last) : "-"},{k:"days",h:"Days",c:"r",hide:1},{k:"ho",h:"HO F/U",hide:1}]},
   col: {noun: "receipts", ph: "Search customer, city, invoice, product\u2026", csv: "collection_view.csv", sort: {k:"date",d:-1}, lab: CB, colr: CCOL, render: renderCol,
     fd: [FA, {k:"owes",label:"INVOICE",get:r=>r.status}, {k:"mon",label:"MONTH",get:r=>r.mon,sort:(x,y)=>y.localeCompare(x)}, {k:"fy",label:"FY",get:r=>r.fy,sort:(x,y)=>y.localeCompare(x)}, {k:"age",label:"COLLECTED IN",get:r=>CB[r.b],sort:ageSort(CB)}, FC],
     tiles: [["kT","Total collected","oK"],["kN","Receipts","oK"],["kM","This month","oK"],["kW","Last 7 days","oK"],["kA","Avg days to pay","oK"],["kL","Paid after 90 d","oK"],["mon","Monthly collection (click a bar to filter)",""],["age","Days to collect (click a bar to filter)",""],["bal","Invoice status of receipts (click to filter)",""],["ins","Key insights",""],["asm","By ASM (click to filter)",""],["top","Top 10 customers (click to search)",""],["tbl","Receipts","oF"]],
     search: r => [r.party, r.city, r.ref, r.prod, r.asm],
-    cols: [{k:"date",h:"Paid on",v:r=>r.date,cell:r=>fmtKey(r.date)},{k:"ref",h:"Invoice",cell:r=>esc(r.ref)+(r.owes ? lnk("out", r.ref) : "")},{k:"party",h:"Customer"},{k:"city",h:"City"},{k:"asm",h:"ASM"},{k:"prod",h:"Product",w:1},{k:"pend",h:"Collected",c:"r",cell:r=>ofl(r.pend)},{k:"owes",h:"Invoice pending",c:"r",cell:r=>r.owes ? ofl(r.owes) : "-"},{k:"inv",h:"Invoice amt",c:"r",cell:r=>ofl(r.inv)},{k:"days",h:"Days to collect",c:"r",v:r=>r.days ?? "",cell:r=>r.days ?? "-"},{k:"b",h:"Speed",v:r=>CB[r.b],cell:r=>pill(r,CB,CCOL)},{k:"fy",h:"FY"}]}
+    cols: [{k:"date",h:"Paid on",v:r=>r.date,cell:r=>fmtKey(r.date)},{k:"ref",h:"Invoice",cell:r=>esc(r.ref)+(r.owes ? lnk("out", r.ref) : "")},{k:"party",h:"Customer"},{k:"city",h:"City"},{k:"asm",h:"ASM",hide:1},{k:"prod",h:"Product",w:1},{k:"pend",h:"Collected",c:"r",cell:r=>ofl(r.pend)},{k:"owes",h:"Invoice pending",c:"r",hide:1,cell:r=>r.owes ? ofl(r.owes) : "-"},{k:"inv",h:"Invoice amt",c:"r",cell:r=>ofl(r.inv)},{k:"days",h:"Days to collect",c:"r",hide:1,v:r=>r.days ?? "",cell:r=>r.days ?? "-"},{k:"b",h:"Speed",v:r=>CB[r.b],cell:r=>pill(r,CB,CCOL)},{k:"fy",h:"FY",hide:1}]}
 };
 let VK = "out", OBOUND = false, OLOADED = 0, OFILE = "", OLOCAL = false, DATA = {out: [], col: []}, OERR = {}, OV = [];
 const rk = s => String(s || "").toUpperCase().replace(/\s+/g, "");
@@ -976,13 +977,13 @@ function oHead(ws, need){
 const oBad = s => /^#/.test(s) ? "" : s;
 function oParseOut(ws){
   const H = oHead(ws, ["date", "pending amount"]); if (!H) throw Error("Could not find the DATE and Pending Amount columns in the Outstanding sheet.");
-  const {hr, rng, cell, txt, col} = H, C = {date: H.cols["date"], ref: col(/^ref\. no/), cat: col(/^category$/), party: col(/^party/), city: col(/^city$/), prod: col(/^product/), pend: H.cols["pending amount"], asm: col(/^asm$/), ho: col(/^ho followup/), rem: col(/^re+a?mark/)};
+  const {hr, rng, cell, txt, col} = H, C = {date: H.cols["date"], ref: col(/^ref\. no/), cat: col(/^category$/), party: col(/^party/), city: col(/^city$/), prod: col(/^product/), inv: col(/^invoice amount/), pend: H.cols["pending amount"], asm: col(/^asm$/), ho: col(/^ho followup/), rem: col(/^re+a?mark/)};
   const now = new Date(), t0 = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()), out = [];
   for (let r = hr + 1; r <= rng.e.r; r++){
-    const dc = cell(r, C.date), dt = dc && (parseDate(dc.v) || parseDate(dc.w)), ref = txt(r, C.ref), pc = cell(r, C.pend);
+    const dc = cell(r, C.date), dt = dc && (parseDate(dc.v) || parseDate(dc.w)), ref = txt(r, C.ref), pc = cell(r, C.pend), ic = cell(r, C.inv);
     if (!dt || !ref || !pc || typeof pc.v !== "number") continue;
     const days = Math.max(0, Math.round((t0 - Date.UTC(dt.y, dt.m, dt.d)) / 864e5));
-    out.push({date: keyOf(dt.y, dt.m, dt.d), ref, cat: oBad(txt(r, C.cat)) || "-", party: oBad(txt(r, C.party)), city: oBad(txt(r, C.city)).toUpperCase(), prod: oBad(txt(r, C.prod)), pend: pc.v, asm: oBad(txt(r, C.asm)).toUpperCase() || "-", ho: oBad(txt(r, C.ho)).toUpperCase(), rem: oBad(txt(r, C.rem)), days, b: obk(days)});
+    out.push({date: keyOf(dt.y, dt.m, dt.d), ref, cat: oBad(txt(r, C.cat)) || "-", party: oBad(txt(r, C.party)), city: oBad(txt(r, C.city)).toUpperCase(), prod: oBad(txt(r, C.prod)), inv: ic && typeof ic.v === "number" ? ic.v : 0, pend: pc.v, asm: oBad(txt(r, C.asm)).toUpperCase() || "-", ho: oBad(txt(r, C.ho)).toUpperCase(), rem: oBad(txt(r, C.rem)), days, b: obk(days)});
   }
   if (!out.length) throw Error("No invoice rows found in the Outstanding sheet.");
   return out;
@@ -1018,12 +1019,12 @@ function oIngest(buf, name, local){
   oLink(); OLOADED = Date.now(); OFILE = name; OLOCAL = !!local; oRender();
 }
 async function oLoad(){
-  $("oMeta").textContent = "Loading data\u2026"; oErr("");
+  $("oUpd").textContent = "Loading data\u2026"; oErr("");
   try {
     const U = CONFIG.OUTSTANDING_URL, res = await fetch(U + (U.includes("?") ? "&" : "?") + "t=" + Date.now(), {cache: "no-store"});
     if (!res.ok) throw Error("Could not download the Excel (HTTP " + res.status + "). Check OUTSTANDING_URL in the page settings and that the repo is public.");
     oIngest(await res.arrayBuffer(), decodeURIComponent(U.split("?")[0].split("/").pop()));
-  } catch (e){ oErr((e && e.message ? e.message : e) + " You can also use \u201cOpen file\u2026\u201d to load the Excel from your computer."); if (!OLOADED) $("oMeta").textContent = "Data not loaded"; }
+  } catch (e){ oErr((e && e.message ? e.message : e) + " You can also use \u201cOpen file\u2026\u201d to load the Excel from your computer."); if (!OLOADED) $("oUpd").textContent = "Data not loaded"; }
 }
 
 /* ---- filters + rendering ---- */
@@ -1102,11 +1103,11 @@ function renderCol(){
 function oRender(){
   if (!OBOUND) return;
   oFill(); const s = S(), V = cv(); OV = DATA[VK].filter(r => oMatch(r, null)); oErr(OERR[VK] || "");
-  $("oMeta").textContent = OLOADED ? OFILE + " \u00b7 " + DATA[VK].length + " " + V.noun + " \u00b7 refreshed " + new Date(OLOADED).toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) + (OLOCAL ? " (from local file)" : "") + (VK === "out" ? " \u00b7 ageing counted from today" : "") : "Loading data\u2026";
+  $("oUpd").textContent = OLOADED ? "Data refreshed " + new Date(OLOADED).toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) + (OLOCAL ? " (from local file)" : "") : "Loading data\u2026";
   V.render();
-  const k = s.sort.k, g = r => r[k] ?? -1, rows = OV.slice().sort((a, b) => s.sort.d * ((g(a) > g(b)) - (g(a) < g(b))));
-  oSet("tbl", '<div class="oKl">Showing ' + OV.length + " of " + DATA[VK].length + ' ' + V.noun + ' (click a heading to sort)</div><div class="otw"><table class="opt"><thead><tr>' + V.cols.map(c => '<th class="' + (c.c || "") + '" data-s="' + c.k + '">' + c.h + (c.k === k ? (s.sort.d > 0 ? " \u25b2" : " \u25bc") : "") + "</th>").join("") + "</tr></thead><tbody>" +
-    rows.map(r => "<tr>" + V.cols.map(c => "<td" + (c.c || c.w ? ' class="' + (c.c || "") + (c.w ? " w" : "") + '"' : "") + ">" + (c.cell ? c.cell(r) : esc(r[c.k])) + "</td>").join("") + "</tr>").join("") + "</tbody></table></div>");
+  const k = s.sort.k, g = r => r[k] == null ? -1 : r[k], shown = V.cols.filter(c => !c.hide), rows = OV.slice().sort((a, b) => { const x = g(a), y = g(b); return s.sort.d * (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), undefined, {numeric: true, sensitivity: "base"})); });
+  oSet("tbl", '<div class="oKl">Showing ' + OV.length + " of " + DATA[VK].length + ' ' + V.noun + ' (click a heading to sort)</div><div class="otw"><table class="opt"><thead><tr>' + shown.map(c => '<th class="' + (c.c || "") + '" data-s="' + c.k + '">' + c.h + (c.k === k ? (s.sort.d > 0 ? " \u25b2" : " \u25bc") : ' <span class="osrt">\u21c5</span>') + "</th>").join("") + "</tr></thead><tbody>" +
+    rows.map(r => "<tr>" + shown.map(c => "<td" + (c.c || c.w ? ' class="' + (c.c || "") + (c.w ? " w" : "") + '"' : "") + ">" + (c.cell ? c.cell(r) : esc(r[c.k])) + "</td>").join("") + "</tr>").join("") + "</tbody></table></div>");
 }
 function oChange(){ oSave(); oRender(); }
 function oBuild(){
@@ -1116,11 +1117,17 @@ function oBuild(){
   $("oGrid").innerHTML = ord.map(id => { const t = V.tiles.find(x => x[0] === id), mn = s.lay.min.includes(id);
     return '<section class="otile ' + t[2] + (mn ? " min" : "") + '" data-id="' + id + '"><div class="oth"><span class="ogrip" title="Drag to move">\u283f</span><span class="t">' + t[1] + '</span><span class="oval"></span><button type="button" class="omin" title="Minimize / restore">' + (mn ? "+" : "\u2013") + '</button></div><div class="otb"></div></section>'; }).join("");
 }
+function oFit(l){
+  l.style.left = l.style.right = "";
+  if (getComputedStyle(l.parentNode).position !== "relative") return;
+  l.style.left = "0"; l.style.right = "auto";
+  const r = l.getBoundingClientRect(); if (r.right > innerWidth - 8){ l.style.left = "auto"; l.style.right = "0"; }
+}
 function oBind(){
   if (OBOUND) return; OBOUND = true; const g = $("oGrid");
   $("oFilters").addEventListener("click", e => {
     e.stopPropagation();
-    const b = e.target.closest(".msb"); if (b){ const l = b.nextElementSibling, w = l.hidden; closeLists(); l.hidden = !w; return; }
+    const b = e.target.closest(".msb"); if (b){ const l = b.nextElementSibling, w = l.hidden; closeLists(); l.hidden = !w; if (w) oFit(l); return; }
     const c = e.target.closest(".clr"); if (c){ S().sel[c.dataset.k].clear(); oChange(); }
   });
   $("oFilters").addEventListener("change", e => { const c = e.target, k = c.closest(".ms").dataset.k; c.checked ? S().sel[k].add(c.value) : S().sel[k].delete(c.value); oChange(); });
@@ -1138,7 +1145,7 @@ function oBind(){
     const lk = e.target.closest(".olink"); if (lk){ vs(lk.dataset.x).q = lk.dataset.q; showView(lk.dataset.x); oSave(); scrollTo(0, 0); return; }
     const s = S(), mn = e.target.closest(".omin");
     if (mn){ const t = mn.closest(".otile"), id = t.dataset.id, on = t.classList.toggle("min"); mn.textContent = on ? "+" : "\u2013"; s.lay.min = s.lay.min.filter(x => x !== id); if (on) s.lay.min.push(id); oSave(); return; }
-    const th = e.target.closest("th[data-s]"); if (th){ const k = th.dataset.s; s.sort = {k, d: s.sort.k === k ? -s.sort.d : (["pend", "days", "inv", "date"].includes(k) ? -1 : 1)}; oRender(); return; }
+    const th = e.target.closest("th[data-s]"); if (th){ const k = th.dataset.s; s.sort = {k, d: s.sort.k === k ? -s.sort.d : (["pend", "days", "inv", "date", "paid", "rc", "last"].includes(k) ? -1 : 1)}; oRender(); return; }
     const b = e.target.closest(".ob"); if (!b) return;
     if (b.dataset.fk){ const sl = s.sel[b.dataset.fk], v = b.dataset.fv, had = sl.has(v); sl.clear(); if (!had) sl.add(v); oChange(); }
     else if (b.dataset.q != null){ s.q = s.q === b.dataset.q ? "" : b.dataset.q; $("oQ").value = s.q; oChange(); }
