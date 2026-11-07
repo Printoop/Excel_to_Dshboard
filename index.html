@@ -178,6 +178,15 @@ ul.oins{margin:0;padding-left:18px}ul.oins li{margin:6px 0}
 .opt th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-size:12px;cursor:pointer}.opt .r{text-align:right;font-variant-numeric:tabular-nums}
 .opt td.w{white-space:normal;min-width:150px;max-width:300px}.opt tr:hover td{background:var(--panel2)}
 .olink{color:var(--accent);cursor:pointer;margin-left:6px;text-decoration:none;font-weight:700}
+#oStrip{display:none}
+@media (max-width:700px){
+#outView{padding:0 12px 28px}
+#oStrip{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;scroll-padding:0 12px;margin:0 -12px 10px;padding:2px 12px 6px}
+.ochip{flex:0 0 auto;min-width:140px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 12px;scroll-snap-align:start}
+.ochip .t{font-size:11px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}.ochip .oKv{font-size:20px}
+.ogrid{display:flex;flex-direction:column}
+.otile.oK,.ogrip{display:none}.otile[data-id=tbl]{order:-1}.otw{max-height:70vh}
+}
 .opill{padding:2px 8px;border-radius:99px;color:#0b1020;font-size:11px;font-weight:700}
 @media (max-width:900px){.otile{grid-column:span 12}.otile.oK,.otile.min,.otile.oF.min{grid-column:span 6}}
 </style>
@@ -214,6 +223,7 @@ ul.oins{margin:0;padding-left:18px}ul.oins li{margin:6px 0}
     <button id="oCsv" type="button">Export CSV</button><button id="oReload" type="button">Refresh data</button>
     <label class="meta" style="cursor:pointer">Open file…<input id="oFile" type="file" accept=".xlsx,.xls" hidden></label></div>
   <div id="oMsg" role="status" hidden></div>
+  <div id="oStrip"></div>
   <div class="ogrid" id="oGrid"></div>
 </div>
 <div class="wrap" id="wrap">
@@ -961,7 +971,7 @@ const S = () => vs(VK);
 function oSave(){ try { const s = S(), o = {q: s.q}; cv().fd.forEach(f => o[f.k] = [...s.sel[f.k]]); localStorage.setItem("mhs_filters_" + VK, JSON.stringify(o)); localStorage.setItem("mhs_" + VK + "_layout", JSON.stringify(s.lay)); } catch (e){} }
 function oErr(t){ const e = $("oMsg"); e.textContent = t || ""; e.hidden = !t; }
 function oSet(id, html, val){ const t = document.querySelector('.otile[data-id="' + id + '"]'); if (!t) return; t.querySelector(".otb").innerHTML = html; if (val != null) t.querySelector(".oval").textContent = val; }
-const oKpi = (id, v, sub) => oSet(id, '<div class="oKv">' + v + '</div><div class="oKl">' + esc(sub || "") + "</div>", v);
+const oKpi = (id, v, sub) => { oSet(id, '<div class="oKv">' + v + '</div><div class="oKl">' + esc(sub || "") + "</div>", v); const c = document.querySelector('#oStrip [data-id="' + id + '"]'); if (c){ c.querySelector(".oKv").textContent = v; c.querySelector(".s").textContent = sub || ""; } };
 const num = v => { if (typeof v === "number") return v; const n = Number(String(v ?? "").replace(/[^0-9.\-]/g, "")); return String(v ?? "").trim() === "" ? NaN : n; };
 
 /* ---- reading the Excel ---- */
@@ -977,7 +987,7 @@ function oHead(ws, need){
 const oBad = s => /^#/.test(s) ? "" : s;
 function oParseOut(ws){
   const H = oHead(ws, ["date", "pending amount"]); if (!H) throw Error("Could not find the DATE and Pending Amount columns in the Outstanding sheet.");
-  const {hr, rng, cell, txt, col} = H, C = {date: H.cols["date"], ref: col(/^ref\. no/), cat: col(/^category$/), party: col(/^party/), city: col(/^city$/), prod: col(/^product/), inv: col(/^invoice amount/), pend: H.cols["pending amount"], asm: col(/^asm$/), ho: col(/^ho followup/), rem: col(/^re+a?mark/)};
+  const {hr, rng, cell, txt, col} = H, C = {date: H.cols["date"], ref: col(/^ref\. no/), cat: col(/^category$/), party: col(/^party/), city: col(/^city$/), prod: col(/^product/), inv: col(/^invoice amount/), pend: H.cols["pending amount"], asm: col(/^asm$/), ho: col(/^ho followup/), rem: col(/^(remark|reamrk)/)};
   const now = new Date(), t0 = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()), out = [];
   for (let r = hr + 1; r <= rng.e.r; r++){
     const dc = cell(r, C.date), dt = dc && (parseDate(dc.v) || parseDate(dc.w)), ref = txt(r, C.ref), pc = cell(r, C.pend), ic = cell(r, C.inv);
@@ -990,16 +1000,17 @@ function oParseOut(ws){
 }
 function oParseCol(ws, out, seen){
   const H = oHead(ws, ["payment credited on", "collected amount"]); if (!H) return;
-  const {hr, rng, cell, txt, col} = H, C = {date: H.cols["payment credited on"], ref: col(/^invoice number/), amt: H.cols["collected amount"], asm: col(/^asm$/), party: col(/^customer/), city: col(/^city$/), prod: col(/^product/), inv: col(/^invoice amount/), idate: col(/^inv date/)};
+  const mine = new Set(), {hr, rng, cell, txt, col} = H, C = {date: H.cols["payment credited on"], ref: col(/^invoice number/), amt: H.cols["collected amount"], asm: col(/^asm$/), party: col(/^customer/), city: col(/^city$/), prod: col(/^product/), inv: col(/^invoice amount/), idate: col(/^inv date/)};
   for (let r = hr + 1; r <= rng.e.r; r++){
     const dc = cell(r, C.date), dt = dc && (parseDate(dc.v) || parseDate(dc.w)), ref = txt(r, C.ref), ac = cell(r, C.amt), amt = ac ? num(ac.v) : NaN;
     if (!dt || !ref || !isFinite(amt) || !amt) continue;
-    const key = keyOf(dt.y, dt.m, dt.d), id = key + "|" + ref + "|" + amt; if (seen.has(id)) continue; seen.add(id);
+    const key = keyOf(dt.y, dt.m, dt.d), id = key + "|" + ref + "|" + amt; if (seen.has(id)) continue; mine.add(id);
     const ic = cell(r, C.idate), id0 = ic && (parseDate(ic.v) || parseDate(ic.w)), d = id0 ? Math.round((Date.UTC(dt.y, dt.m, dt.d) - Date.UTC(id0.y, id0.m, id0.d)) / 864e5) : NaN;
     const days = isFinite(d) && d >= 0 && d < 3000 ? d : null, ivc = cell(r, C.inv);
     out.push({date: key, ref, party: oBad(txt(r, C.party)), city: oBad(txt(r, C.city)).toUpperCase(), prod: oBad(txt(r, C.prod)), pend: amt, inv: ivc && typeof ivc.v === "number" ? ivc.v : 0, asm: oBad(txt(r, C.asm)).toUpperCase() || "-",
       days, b: days == null ? 6 : obk(days), mon: key.slice(0, 7), fy: dt.m >= 3 ? dt.y + "-" + (dt.y + 1) : (dt.y - 1) + "-" + dt.y});
   }
+  mine.forEach(x => seen.add(x));
 }
 function oLink(){
   const byRef = {}, op = {};
@@ -1114,6 +1125,7 @@ function oBuild(){
   const V = cv(), s = S(), ids = V.tiles.map(t => t[0]), ord = s.lay.order.filter(i => ids.includes(i)); ids.forEach(i => { if (!ord.includes(i)) ord.push(i); });
   $("oFilters").innerHTML = V.fd.map(f => '<div class="ms" data-k="' + f.k + '"><button type="button" class="msb"></button><div class="mslist" hidden></div></div>').join("");
   $("oQ").value = s.q; $("oQ").placeholder = V.ph;
+  $("oStrip").innerHTML = V.tiles.filter(t => t[2] === "oK").map(t => '<div class="ochip" data-id="' + t[0] + '"><div class="oKl t">' + t[1] + '</div><div class="oKv"></div><div class="oKl s"></div></div>').join("");
   $("oGrid").innerHTML = ord.map(id => { const t = V.tiles.find(x => x[0] === id), mn = s.lay.min.includes(id);
     return '<section class="otile ' + t[2] + (mn ? " min" : "") + '" data-id="' + id + '"><div class="oth"><span class="ogrip" title="Drag to move">\u283f</span><span class="t">' + t[1] + '</span><span class="oval"></span><button type="button" class="omin" title="Minimize / restore">' + (mn ? "+" : "\u2013") + '</button></div><div class="otb"></div></section>'; }).join("");
 }
